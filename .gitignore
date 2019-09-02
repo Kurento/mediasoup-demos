@@ -1,3 +1,6 @@
+# GitHub .gitignore for Node.js
+# =============================
+
 # Logs
 logs
 *.log
@@ -59,3 +62,9 @@ typings/
 
 # next.js build output
 .next
+
+# Custom rules for this project
+# =============================
+
+# Build artifact(s)
+client-bundle.js
