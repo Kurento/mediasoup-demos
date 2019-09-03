@@ -37,6 +37,11 @@ module.exports = {
 
     // RouterOptions
     router: {
+      // -------
+      // WARNING
+      // These values MUST match those found in the input SDP file
+      // -------
+
       // RtpCodecCapability[]
       mediaCodecs: [
         {
@@ -50,11 +55,19 @@ module.exports = {
           kind: "video",
           mimeType: "video/VP8",
           preferredPayloadType: 96,
-          clockRate: 90000,
-          parameters: {
-            "x-google-start-bitrate": 1000
-          }
+          clockRate: 90000
         }
+        // {
+        //   kind: "video",
+        //   mimeType: "video/H264",
+        //   preferredPayloadType: 125,
+        //   clockRate: 90000,
+        //   parameters: {
+        //     "level-asymmetry-allowed": 1,
+        //     "packetization-mode": 1,
+        //     "profile-level-id": "42e01f"
+        //   }
+        // }
       ]
     },
 

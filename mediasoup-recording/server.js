@@ -118,6 +118,29 @@ const global = {
 
 // ----------------------------------------------------------------------------
 
+// Util functions
+// ==============
+
+function audioEnabled() {
+  return global.mediasoup.webrtcAudioProducer !== null;
+}
+
+function videoEnabled() {
+  return global.mediasoup.webrtcVideoProducer !== null;
+}
+
+function h264Enabled() {
+  const videoCaps = CONFIG.mediasoup.router.mediaCodecs.filter(
+    cap => cap.kind === "video"
+  );
+  if (videoCaps && videoCaps[0].mimeType === "video/H264") {
+    return true;
+  }
+  return false;
+}
+
+// ----------------------------------------------------------------------------
+
 // WebSocket handlers
 // ==================
 
@@ -246,14 +269,6 @@ async function handleStartProducer(produceParameters, callback) {
 
 // ----------------------------------------------------------------------------
 
-function audioEnabled() {
-  return global.mediasoup.webrtcAudioProducer !== null;
-}
-
-function videoEnabled() {
-  return global.mediasoup.webrtcVideoProducer !== null;
-}
-
 async function handleStartRecording(recorder) {
   const router = global.mediasoup.router;
   const hasAudio = audioEnabled();
@@ -380,10 +395,10 @@ async function handleStartRecording(recorder) {
  *     -nostdin \
  *     -protocol_whitelist file,rtp,udp \
  *     -fflags +genpts \
- *     -i recording/input.sdp \
- *     -map 0:a:0 -map 0:v:0 -acodec copy -vcodec copy \
- *     -flags +global_header \
- *     -y recording/output.webm
+ *     -i recording/input-vp8.sdp \
+ *     -map 0:a:0 -c:a copy -map 0:v:0 -c:v copy \
+ *     -f webm -flags +global_header \
+ *     -y recording/output-ffmpeg-vp8.webm
  */
 function startRecordingFfmpeg() {
   // Return a Promise that can be awaited
@@ -394,9 +409,13 @@ function startRecordingFfmpeg() {
 
   const hasAudio = audioEnabled();
   const hasVideo = videoEnabled();
+  const hasH264 = h264Enabled();
 
+  let cmdInputPath = `${__dirname}/recording/input-vp8.sdp`;
+  let cmdOutputPath = `${__dirname}/recording/output-ffmpeg-vp8.webm`;
   let cmdProtocol = "";
-  let cmdCodec = "-an -vn";
+  let cmdCodec = "";
+  let cmdFormat = "-f webm -flags +global_header";
 
   // Set protocol
   const ffmpegOut = Process.execSync("ffmpeg -version", { encoding: "utf8" });
@@ -414,28 +433,35 @@ function startRecordingFfmpeg() {
     process.exit(1);
   }
 
-  // Set codec
-  if (hasAudio && hasVideo) {
-    cmdCodec = "-map 0:a:0 -map 0:v:0 -acodec copy -vcodec copy";
-  } else if (hasAudio) {
-    cmdCodec = "-acodec copy -vn";
-  } else if (hasVideo) {
-    cmdCodec = "-vcodec copy -an";
+  if (hasAudio) {
+    cmdCodec += " -map 0:a:0 -c:a copy";
+  }
+  if (hasVideo) {
+    cmdCodec += " -map 0:v:0 -c:v copy";
+
+    if (hasH264) {
+      cmdInputPath = `${__dirname}/recording/input-h264.sdp`;
+      cmdOutputPath = `${__dirname}/recording/output-ffmpeg-h264.webm`;
+
+      // "-strict experimental" is required to allow storing
+      // OPUS audio into MP4 container
+      cmdFormat = "-f mp4 -strict experimental";
+    }
   }
 
   // Run process
   const cmdProgram = "ffmpeg"; // Found through $PATH
   const cmdArgStr = [
-    cmdProtocol,
     "-nostdin",
+    cmdProtocol,
     // "-loglevel debug",
     // "-analyzeduration 5M",
     // "-probesize 5M",
     "-fflags +genpts",
-    `-i ${__dirname}/recording/input.sdp`,
+    `-i ${cmdInputPath}`,
     cmdCodec,
-    "-f webm -flags +global_header",
-    `-y ${__dirname}/recording/output.webm`
+    cmdFormat,
+    `-y ${cmdOutputPath}`
   ]
     .join(" ")
     .trim();
@@ -498,10 +524,10 @@ function startRecordingFfmpeg() {
  *
  * gst-launch-1.0 \
  *     --eos-on-shutdown \
- *     filesrc location=recording/input.sdp \
+ *     filesrc location=recording/input-vp8.sdp \
  *         ! sdpdemux timeout=0 name=demux \
- *     webmmux name=mux \
- *         ! filesink location=recording/output.webm async=false sync=false \
+ *     webmmux name=mux ! queue \
+ *         ! filesink location=recording/output-gstreamer-vp8.webm \
  *     demux. ! queue \
  *         ! rtpopusdepay \
  *         ! opusparse \
@@ -509,6 +535,10 @@ function startRecordingFfmpeg() {
  *     demux. ! queue \
  *         ! rtpvp8depay \
  *         ! mux.
+ *
+ * NOTES:
+ *
+ * - For H.264, we need to add "h264parse" and change the muxer to "mp4mux".
  */
 function startRecordingGstreamer() {
   // Return a Promise that can be awaited
@@ -519,32 +549,51 @@ function startRecordingGstreamer() {
 
   const hasAudio = audioEnabled();
   const hasVideo = videoEnabled();
+  const hasH264 = h264Enabled();
 
+  let cmdInputPath = `${__dirname}/recording/input-vp8.sdp`;
+  let cmdOutputPath = `${__dirname}/recording/output-gstreamer-vp8.webm`;
+  let cmdMux = "webmmux";
   let cmdAudioBranch = "";
   let cmdVideoBranch = "";
 
   if (hasAudio) {
     cmdAudioBranch =
-      "demux. ! queue \
+      "\
+      demux. ! queue \
       ! rtpopusdepay \
       ! opusparse \
       ! mux.";
   }
 
   if (hasVideo) {
-    cmdVideoBranch = "demux. ! queue \
-      ! rtpvp8depay \
-      ! mux.";
+    if (hasH264) {
+      cmdInputPath = `${__dirname}/recording/input-h264.sdp`;
+      cmdOutputPath = `${__dirname}/recording/output-gstreamer-h264.mp4`;
+      cmdMux = "mp4mux";
+      cmdVideoBranch =
+        "\
+        demux. ! queue \
+        ! rtph264depay \
+        ! h264parse \
+        ! mux.";
+    } else {
+      cmdVideoBranch =
+        "\
+        demux. ! queue \
+        ! rtpvp8depay \
+        ! mux.";
+    }
   }
 
   // Run process
   const cmdProgram = "gst-launch-1.0"; // Found through $PATH
   const cmdArgStr = [
     "--eos-on-shutdown",
-    `filesrc location=${__dirname}/recording/input.sdp`,
+    `filesrc location=${cmdInputPath}`,
     "! sdpdemux timeout=0 name=demux",
-    "webmmux name=mux",
-    `! filesink location=${__dirname}/recording/output.webm async=false sync=false`,
+    `${cmdMux} name=mux ! queue`,
+    `! filesink location=${cmdOutputPath}`,
     cmdAudioBranch,
     cmdVideoBranch
   ]

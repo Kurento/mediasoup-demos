@@ -27,13 +27,87 @@ sudo apt-get install --yes \
 
 
 
-Running
--------
+Configure
+---------
+
+You can choose between using **VP8** or **H.264** for the video encoding, which are the two standard codecs typically used for WebRTC. For this, edit the file [config.js](config.js) and un/comment the corresponding part in the `mediaCodecs` section:
+
+*For VP8*:
+
+```js
+mediaCodecs: [
+  {
+    kind: "audio",
+    mimeType: "audio/opus",
+    preferredPayloadType: 111,
+    clockRate: 48000,
+    channels: 2
+  },
+  {
+    kind: "video",
+    mimeType: "video/VP8",
+    preferredPayloadType: 96,
+    clockRate: 90000
+  }
+  // {
+  //   kind: "video",
+  //   mimeType: "video/H264",
+  //   preferredPayloadType: 125,
+  //   clockRate: 90000,
+  //   parameters: {
+  //     "level-asymmetry-allowed": 1,
+  //     "packetization-mode": 1,
+  //     "profile-level-id": "42e01f"
+  //   }
+  // }
+]
+```
+
+*For H.264*:
+
+```js
+mediaCodecs: [
+  {
+    kind: "audio",
+    mimeType: "audio/opus",
+    preferredPayloadType: 111,
+    clockRate: 48000,
+    channels: 2
+  },
+  // {
+  //   kind: "video",
+  //   mimeType: "video/VP8",
+  //   preferredPayloadType: 96,
+  //   clockRate: 90000
+  // }
+  {
+    kind: "video",
+    mimeType: "video/H264",
+    preferredPayloadType: 125,
+    clockRate: 90000,
+    parameters: {
+      "level-asymmetry-allowed": 1,
+      "packetization-mode": 1,
+      "profile-level-id": "42e01f"
+    }
+  }
+]
+```
+
+When *VP8* is enabled, the recording output file format will be **WEBM**. Similarly, *H.264* will use **MP4** as recording file format.
+
+**WARNING**: Right now, recording OPUS audio into MP4 container is not working with FFmpeg, so if you enable H.264 and choose the FFmpeg recorder, then resulting MP4 files won't have working audio.
+
+
+
+Run
+---
 
 Run these commands:
 
 ```sh
 npm install
+
 npm start
 ```
 
