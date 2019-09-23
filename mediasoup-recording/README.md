@@ -30,69 +30,7 @@ sudo apt-get install --yes \
 Configure
 ---------
 
-You can choose between using **VP8** or **H.264** for the video encoding, which are the two standard codecs typically used for WebRTC. For this, edit the file [config.js](config.js) and un/comment the corresponding part in the `mediaCodecs` section:
-
-*For VP8*:
-
-```js
-mediaCodecs: [
-  {
-    kind: "audio",
-    mimeType: "audio/opus",
-    preferredPayloadType: 111,
-    clockRate: 48000,
-    channels: 2
-  },
-  {
-    kind: "video",
-    mimeType: "video/VP8",
-    preferredPayloadType: 96,
-    clockRate: 90000
-  }
-  // {
-  //   kind: "video",
-  //   mimeType: "video/H264",
-  //   preferredPayloadType: 125,
-  //   clockRate: 90000,
-  //   parameters: {
-  //     "level-asymmetry-allowed": 1,
-  //     "packetization-mode": 1,
-  //     "profile-level-id": "42e01f"
-  //   }
-  // }
-]
-```
-
-*For H.264*:
-
-```js
-mediaCodecs: [
-  {
-    kind: "audio",
-    mimeType: "audio/opus",
-    preferredPayloadType: 111,
-    clockRate: 48000,
-    channels: 2
-  },
-  // {
-  //   kind: "video",
-  //   mimeType: "video/VP8",
-  //   preferredPayloadType: 96,
-  //   clockRate: 90000
-  // }
-  {
-    kind: "video",
-    mimeType: "video/H264",
-    preferredPayloadType: 125,
-    clockRate: 90000,
-    parameters: {
-      "level-asymmetry-allowed": 1,
-      "packetization-mode": 1,
-      "profile-level-id": "42e01f"
-    }
-  }
-]
-```
+You can choose between using **VP8** or **H.264** for the video encoding, which are the two standard codecs typically used for WebRTC. For this, select the desired codec before starting the WebRTC call with the browser.
 
 When *VP8* is enabled, the recording output file format will be **WEBM**. Similarly, *H.264* will use **MP4** as recording file format.
 
@@ -115,12 +53,35 @@ Then wait for a message such as "*Server is running: https://127.0.0.1:8080*" an
 
 
 
+Note for recording with FFmpeg
+------------------------------
+
+**FFmpeg >= 4.3.0 ??? (?? Dic 2019) is required**.
+
+(Work In Progress: the support for OPUS audio in MP4 container is being treated [here](http://ffmpeg.org/pipermail/ffmpeg-user/2019-September/045274.html))
+
+Older versions of [FFmpeg](https://ffmpeg.org/) had some issues in the OPUS handler, which prevented recording audio in MP4 containers. So you need a recent enough version where this has been fixed.
+
+Most Linux distros will come with too old versions of FFmpeg, so the recommendation is to download a static build from [John Van Sickle's website](https://www.johnvansickle.com/ffmpeg/).
+
+For example, in Ubuntu systems, you can download the latest FFmpeg release with these commands:
+
+```sh
+cd /tmp
+wget "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz"
+tar Jxf ffmpeg-release-amd64-static.tar.xz
+cd ffmpeg-*-amd64-static/
+sudo cp ffmpeg /usr/local/bin/
+```
+
+
+
 Note for users of VLC
 ---------------------
 
 **VLC >= 3.0 is required**.
 
-Versions of [VLC](https://www.videolan.org/vlc/index.html) older than 3.0 are not able to properly play OPUS audio that is stored into a Matroska/WEBM container, which is the format used by this demo to store recordings.
+Versions of [VLC](https://www.videolan.org/vlc/index.html) older than 3.0 are not able to properly play OPUS audio that is stored into a Matroska/WEBM container, which is the format used by this demo to store recordings when using the VP8 video codec.
 
 If you use an older Linux distro that comes with VLC 2.x, then you will have to look into how to install a more up to date version of VLC, or just use a different media player.
 

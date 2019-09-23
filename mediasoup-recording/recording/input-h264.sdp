@@ -3,11 +3,11 @@ o=- 0 0 IN IP4 127.0.0.1
 s=-
 c=IN IP4 127.0.0.1
 t=0 0
-m=audio 5006 RTP/AVPF 111
+m=audio 5006 RTP/AVP 111
 a=rtcp-mux
 a=rtpmap:111 opus/48000/2
 a=fmtp:111 minptime=10;useinbandfec=1
-m=video 5004 RTP/AVPF 125
+m=video 5004 RTP/AVP 125
 a=rtcp-mux
 a=rtpmap:125 H264/90000
 a=fmtp:125 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f

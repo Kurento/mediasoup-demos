@@ -22,16 +22,9 @@ module.exports = {
         "rtp",
         "srtp",
         "rtcp"
-        // "rtx",
-        // "bwe",
-        // "score",
-        // "simulcast",
-        // "svc",
-        // "sctp",
+        // "rtx", "bwe", "score", "simulcast", "svc", "sctp",
       ],
-      // Minimum RTC port for ICE, DTLS, RTP, etc.
       rtcMinPort: 32256,
-      // Maximum RTC port for ICE, DTLS, RTP, etc.
       rtcMaxPort: 65535
     },
 
@@ -56,18 +49,18 @@ module.exports = {
           mimeType: "video/VP8",
           preferredPayloadType: 96,
           clockRate: 90000
+        },
+        {
+          kind: "video",
+          mimeType: "video/H264",
+          preferredPayloadType: 125,
+          clockRate: 90000,
+          parameters: {
+            "level-asymmetry-allowed": 1,
+            "packetization-mode": 1,
+            "profile-level-id": "42e01f"
+          }
         }
-        // {
-        //   kind: "video",
-        //   mimeType: "video/H264",
-        //   preferredPayloadType: 125,
-        //   clockRate: 90000,
-        //   parameters: {
-        //     "level-asymmetry-allowed": 1,
-        //     "packetization-mode": 1,
-        //     "profile-level-id": "42e01f"
-        //   }
-        // }
       ]
     },
 

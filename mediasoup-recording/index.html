@@ -7,11 +7,11 @@
     <!-- Disable favicon -->
     <link rel="icon" href="data:," />
 
-    <title>Mediasoup example - Recording with GStreamer</title>
+    <title>mediasoup demo - WebRTC recording</title>
   </head>
 
   <body>
-    <h1>Mediasoup example - Recording with GStreamer</h1>
+    <h1>mediasoup demo - WebRTC recording</h1>
     <p>
       This <b>mediasoup</b> demo receives the browser's webcam media using
       WebRTC (
@@ -30,7 +30,7 @@
     </p>
 
     <div>
-      <label>Media:</label>
+      Media:
       <label>
         <input type="radio" name="uiMedia" value="audio" />
         Audio only
@@ -46,7 +46,7 @@
     </div>
 
     <div>
-      <label>Recording program:</label>
+      Recording program:
       <label>
         <input type="radio" name="uiRecorder" value="ffmpeg" checked />
         FFmpeg
@@ -58,6 +58,18 @@
       <label>
         <input type="radio" name="uiRecorder" value="external" />
         External
+      </label>
+    </div>
+
+    <div>
+      Video codec:
+      <label>
+        <input type="radio" name="uiVCodecName" value="VP8" checked />
+        VP8 (WEBM file)
+      </label>
+      <label>
+        <input type="radio" name="uiVCodecName" value="H264" />
+        H.264 (MP4 file)
       </label>
     </div>
 
