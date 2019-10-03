@@ -12,9 +12,11 @@ Check out the [architecture diagram](diagram.png) of this demo.
 Setup
 -----
 
-mediasoup applications are written for [Node.js](https://nodejs.org/), so you need to have it installed. Follow the [Node.js installation instructions](https://github.com/nodesource/distributions/blob/master/README.md) provided by NodeSource to install Node.js from an official repository; or just grab it from the official [downloads page](https://nodejs.org/en/download/).
+mediasoup applications are written for [Node.js](https://nodejs.org/), so you need to have it installed. Follow the [NodeSource installation instructions](https://github.com/nodesource/distributions/blob/master/README.md) to install Node.js from an official repository; or just grab it from the official [downloads page](https://nodejs.org/en/download/).
 
-This demo uses the Kurento Media Server, so you will need to install it. Just follow the [Kurento installation instructions](https://doc-kurento.readthedocs.io/en/stable/user/installation.html#local-installation). **Note that Kurento is only compatible with either Ubuntu 16.04 "Xenial" or 18.04 "Bionic"**.
+This demo shows how to integrate with Kurento Media Server, so it must be installed too. Just follow the [Kurento installation instructions](https://doc-kurento.readthedocs.io/en/stable/user/installation.html#local-installation).
+
+**Note that Kurento is only compatible with either Ubuntu 16.04 "Xenial" or 18.04 "Bionic"**.
 
 
 
@@ -31,4 +33,4 @@ npm install
 npm start
 ```
 
-Then wait for a message such as "*Server is running: https://127.0.0.1:8080*" and direct your browser to that URL.
+Then wait for a message such as "`Server is running: https://127.0.0.1:8080`", and direct your browser to that URL.

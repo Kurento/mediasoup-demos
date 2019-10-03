@@ -49,30 +49,36 @@ npm install
 npm start
 ```
 
-Then wait for a message such as "*Server is running: https://127.0.0.1:8080*" and direct your browser to that URL.
+Then wait for a message such as "`Server is running: https://127.0.0.1:8080`", and direct your browser to that URL.
 
 
 
 Note for recording with FFmpeg
 ------------------------------
 
-**FFmpeg >= 4.3.0 ??? (?? Dic 2019) is required**.
+**FFmpeg >= 4.0 is required**.
 
-(Work In Progress: the support for OPUS audio in MP4 container is being treated [here](http://ffmpeg.org/pipermail/ffmpeg-user/2019-September/045274.html))
-
-Older versions of [FFmpeg](https://ffmpeg.org/) had some issues in the OPUS handler, which prevented recording audio in MP4 containers. So you need a recent enough version where this has been fixed.
-
-Most Linux distros will come with too old versions of FFmpeg, so the recommendation is to download a static build from [John Van Sickle's website](https://www.johnvansickle.com/ffmpeg/).
+Most Linux distros come with too old versions of FFmpeg, so the recommendation is to download an up-to-date static build from [John Van Sickle's website](https://www.johnvansickle.com/ffmpeg/).
 
 For example, in Ubuntu systems, you can download the latest FFmpeg release with these commands:
 
 ```sh
-cd /tmp
+cd /tmp/
 wget "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz"
 tar Jxf ffmpeg-release-amd64-static.tar.xz
 cd ffmpeg-*-amd64-static/
 sudo cp ffmpeg /usr/local/bin/
 ```
+
+
+
+**WARNING: FFmpeg cannot record in MP4**.
+
+This is a Work In Progress: the support for OPUS audio in MP4 container doesn't work, even in latest versions. This is due to a bug with the OPUS metadata handling, which was reported and is being tracked here:
+
+* [mp4 opus invalid extradata size (missing header)](http://ffmpeg.org/pipermail/ffmpeg-user/2019-September/045274.html)
+
+We are waiting for a fix that solves the issue. Meanwhile, if you try FFmpeg as the recording tool, make sure that the selected container format is WEBM, or that the stream doesn't contain audio.
 
 
 
@@ -85,7 +91,7 @@ Versions of [VLC](https://www.videolan.org/vlc/index.html) older than 3.0 are no
 
 If you use an older Linux distro that comes with VLC 2.x, then you will have to look into how to install a more up to date version of VLC, or just use a different media player.
 
-For example, in Ubuntu systems, you can run the latest `snap`-based VLC version, with:
+For example, in Ubuntu systems, you can run the latest `snap`-based VLC version, with these commands:
 
 ```sh
 sudo apt-get update
