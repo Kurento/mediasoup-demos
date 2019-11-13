@@ -1,19 +1,24 @@
+"use strict";
+
 const CONFIG = require("./config");
 const Express = require("express");
 const Fs = require("fs");
 const Https = require("https");
-const MediaSoup = require("mediasoup");
+const Mediasoup = require("mediasoup");
 const SocketServer = require("socket.io");
 const Process = require("child_process");
 
-// Global state
-// A real application would store this in user session(s)
+// ----------------------------------------------------------------------------
+
+// Application state
+// =================
+
 const global = {
   server: {
-    express: null,
+    expressApp: null,
     https: null,
-    socketServer: null,
-    socket: null
+    socket: null,
+    socketServer: null
   },
 
   mediasoup: {
@@ -41,52 +46,32 @@ const global = {
 
 // ----------------------------------------------------------------------------
 
-// Express application
-// ===================
-{
-  const express = Express();
-  global.server.express = express;
-
-  express.use(Express.json());
-  express.use(Express.static(__dirname));
-  express.use((err, req, res, next) => {
-    if (err) {
-      console.warn("Express app error:", err.message);
-      err.status = err.status || (err.name === "TypeError" ? 400 : 500);
-      res.statusMessage = err.message;
-      res.status(err.status).send(String(err));
-    } else {
-      next();
-    }
-  });
-}
-
-// ----------------------------------------------------------------------------
-
 // HTTPS server
 // ============
 {
+  const expressApp = Express();
+  global.server.expressApp = expressApp;
+  expressApp.use("/", Express.static(__dirname));
+
   const https = Https.createServer(
     {
       cert: Fs.readFileSync(CONFIG.https.cert),
       key: Fs.readFileSync(CONFIG.https.certKey)
     },
-    global.server.express
+    expressApp
   );
   global.server.https = https;
 
+  https.on("listening", () => {
+    console.log("Web server is running, port:", CONFIG.https.port);
+  });
   https.on("error", err => {
     console.error("HTTPS error:", err.message);
   });
   https.on("tlsClientError", err => {
     console.error("TLS error:", err.message);
   });
-  https.listen(CONFIG.https.port, CONFIG.https.ip, () => {
-    console.log(
-      "Server is running:",
-      `https://${CONFIG.https.ip}:${CONFIG.https.port}`
-    );
-  });
+  https.listen(CONFIG.https.port);
 }
 
 // ----------------------------------------------------------------------------
@@ -105,8 +90,7 @@ const global = {
 
   socketServer.on("connect", socket => {
     console.log(
-      "WebSocket server connected with %s:%s",
-      socket.request.connection.remoteAddress,
+      "WebSocket server connected, port: %s",
       socket.request.connection.remotePort
     );
     global.server.socket = socket;
@@ -122,6 +106,26 @@ const global = {
     socket.on("CLIENT_START_RECORDING", handleStartRecording);
     socket.on("CLIENT_STOP_RECORDING", handleStopRecording);
   });
+}
+
+// ----
+
+async function handleRequest(request, callback) {
+  let responseData = null;
+
+  switch (request.type) {
+    case "CLIENT_START_MEDIASOUP":
+      responseData = await handleStartMediasoup(request.vCodecName);
+      break;
+    case "CLIENT_START_TRANSPORT":
+      responseData = await handleStartTransport();
+      break;
+    default:
+      console.warn("Invalid request type:", request.type);
+      break;
+  }
+
+  callback({ type: request.type, data: responseData });
 }
 
 // ----------------------------------------------------------------------------
@@ -146,35 +150,12 @@ function h264Enabled() {
 
 // ----------------------------------------------------------------------------
 
-// WebSocket handlers
-// ==================
-
-async function handleRequest(request, callback) {
-  let responseData = null;
-
-  switch (request.type) {
-    case "CLIENT_START_MEDIASOUP":
-      responseData = await handleStartMediasoup(request.vCodecName);
-      break;
-    case "CLIENT_START_TRANSPORT":
-      responseData = await handleStartTransport();
-      break;
-    default:
-      console.warn("Invalid request type:", request.type);
-      break;
-  }
-
-  callback({ type: request.type, data: responseData });
-}
-
-// ----------------------------------------------------------------------------
-
 /*
  * Creates a mediasoup worker and router.
  * videoCodec: One of "VP8", "H264".
  */
 async function handleStartMediasoup(vCodecName) {
-  const worker = await MediaSoup.createWorker(CONFIG.mediasoup.worker);
+  const worker = await Mediasoup.createWorker(CONFIG.mediasoup.worker);
   global.mediasoup.worker = worker;
 
   worker.on("died", () => {
@@ -185,7 +166,7 @@ async function handleStartMediasoup(vCodecName) {
     setTimeout(() => process.exit(1), 3000);
   });
 
-  console.log("Created mediasoup worker [pid:%d]", worker.pid);
+  console.log("mediasoup worker created [pid:%d]", worker.pid);
 
   // Build a RouterOptions based on 'CONFIG.mediasoup.router' and the
   // requested 'vCodecName'
@@ -197,9 +178,9 @@ async function handleStartMediasoup(vCodecName) {
     c => c.mimeType === "audio/opus"
   );
   if (!audioCodec) {
-    const line = "Undefined codec mime type: audio/opus -- Check config.js";
-    console.error(line);
-    global.server.socket.emit("SERVER_LOG_LINE", line);
+    const log = "Undefined codec mime type: audio/opus -- Check config.js";
+    console.error(log);
+    global.server.socket.emit("SERVER_LOG", log);
     process.exit(1);
   }
   routerOptions.mediaCodecs.push(audioCodec);
@@ -208,9 +189,9 @@ async function handleStartMediasoup(vCodecName) {
     c => c.mimeType === `video/${vCodecName}`
   );
   if (!videoCodec) {
-    const line = `Undefined codec mime type: video/${vCodecName} -- Check config.js`;
-    console.error(line);
-    global.server.socket.emit("SERVER_LOG_LINE", line);
+    const log = `Undefined codec mime type: video/${vCodecName} -- Check config.js`;
+    console.error(log);
+    global.server.socket.emit("SERVER_LOG", log);
     process.exit(1);
   }
   routerOptions.mediaCodecs.push(videoCodec);
@@ -222,10 +203,10 @@ async function handleStartMediasoup(vCodecName) {
   // router codecs enhanced with retransmission and RTCP capabilities,
   // and the list of RTP header extensions supported by mediasoup.
 
-  console.log("Created mediasoup router");
+  console.log("mediasoup router created");
 
   // Uncomment for debug
-  // console.log("rtpCapabilities: %s", JSON.stringify(router.rtpCapabilities, null, 2));
+  // console.log("rtpCapabilities:\n%s", JSON.stringify(router.rtpCapabilities, null, 2));
 
   return router.rtpCapabilities;
 }
@@ -238,9 +219,11 @@ async function handleStartTransport() {
   const router = global.mediasoup.router;
 
   const webrtcTransport = await router.createWebRtcTransport(
-    CONFIG.mediasoup.webRtcTransport
+    CONFIG.mediasoup.webrtcTransport
   );
   global.mediasoup.webrtc.transport = webrtcTransport;
+
+  console.log("mediasoup WebRTC RECV transport created");
 
   const webrtcTransportOptions = {
     id: webrtcTransport.id,
@@ -250,10 +233,8 @@ async function handleStartTransport() {
     sctpParameters: webrtcTransport.sctpParameters
   };
 
-  console.log("Created mediasoup WebRTC transport");
-
   // Uncomment for debug
-  // console.log("webrtcTransportOptions: %s", JSON.stringify(webrtcTransportOptions, null, 2));
+  // console.log("webrtcTransportOptions:\n%s", JSON.stringify(webrtcTransportOptions, null, 2));
 
   return webrtcTransportOptions;
 }
@@ -272,7 +253,7 @@ async function handleConnectTransport(dtlsParameters) {
 
 // ----------------------------------------------------------------------------
 
-// Calls WebrtcTransport.produce() to start receiving media from browser
+// Calls WebRtcTransport.produce() to start receiving media from the browser
 
 async function handleStartProducer(produceParameters, callback) {
   const webrtcTransport = global.mediasoup.webrtc.transport;
@@ -290,14 +271,14 @@ async function handleStartProducer(produceParameters, callback) {
   global.server.socket.emit("SERVER_PRODUCER_READY", producer.kind);
 
   console.log(
-    "Created mediasoup WebRTC producer, kind: %s, type: %s, paused: %s",
+    "mediasoup WebRTC producer created, kind: %s, type: %s, paused: %s",
     producer.kind,
     producer.type,
     producer.paused
   );
 
   // Uncomment for debug
-  // console.log("rtpParameters: %s", JSON.stringify(producer.rtpParameters, null, 2));
+  // console.log("rtpParameters:\n%s", JSON.stringify(producer.rtpParameters, null, 2));
 
   callback(producer.id);
 }
@@ -306,12 +287,12 @@ async function handleStartProducer(produceParameters, callback) {
 
 async function handleStartRecording(recorder) {
   const router = global.mediasoup.router;
-  const hasAudio = audioEnabled();
-  const hasVideo = videoEnabled();
+  const useAudio = audioEnabled();
+  const useVideo = videoEnabled();
 
   // Start mediasoup's RTP consumer(s)
 
-  if (hasAudio) {
+  if (useAudio) {
     const rtpAudioTransport = await router.createPlainRtpTransport(
       CONFIG.mediasoup.plainRtpTransport
     );
@@ -332,14 +313,14 @@ async function handleStartRecording(recorder) {
     global.mediasoup.rtp.audioConsumer = rtpAudioConsumer;
 
     console.log(
-      "Created mediasoup RTP consumer, kind: %s, type: %s, paused: %s",
+      "mediasoup RTP consumer created, kind: %s, type: %s, paused: %s",
       rtpAudioConsumer.kind,
       rtpAudioConsumer.type,
       rtpAudioConsumer.paused
     );
   }
 
-  if (hasVideo) {
+  if (useVideo) {
     const rtpVideoTransport = await router.createPlainRtpTransport(
       CONFIG.mediasoup.plainRtpTransport
     );
@@ -360,7 +341,7 @@ async function handleStartRecording(recorder) {
     global.mediasoup.rtp.videoConsumer = rtpVideoConsumer;
 
     console.log(
-      "Created mediasoup RTP consumer, kind: %s, type: %s, paused: %s",
+      "mediasoup RTP consumer created, kind: %s, type: %s, paused: %s",
       rtpVideoConsumer.kind,
       rtpVideoConsumer.type,
       rtpVideoConsumer.paused
@@ -384,7 +365,7 @@ async function handleStartRecording(recorder) {
       break;
   }
 
-  if (hasAudio) {
+  if (useAudio) {
     const consumer = global.mediasoup.rtp.audioConsumer;
     console.log(
       "Resume mediasoup RTP consumer, kind: %s, type: %s",
@@ -393,7 +374,7 @@ async function handleStartRecording(recorder) {
     );
     consumer.resume();
   }
-  if (hasVideo) {
+  if (useVideo) {
     const consumer = global.mediasoup.rtp.videoConsumer;
     console.log(
       "Resume mediasoup RTP consumer, kind: %s, type: %s",
@@ -440,9 +421,9 @@ function startRecordingFfmpeg() {
     resolve = res;
   });
 
-  const hasAudio = audioEnabled();
-  const hasVideo = videoEnabled();
-  const hasH264 = h264Enabled();
+  const useAudio = audioEnabled();
+  const useVideo = videoEnabled();
+  const useH264 = h264Enabled();
 
   let cmdInputPath = `${__dirname}/recording/input-vp8.sdp`;
   let cmdOutputPath = `${__dirname}/recording/output-ffmpeg-vp8.webm`;
@@ -467,19 +448,19 @@ function startRecordingFfmpeg() {
   }
 
   if (!ffmpegOk) {
-    const line = "FFmpeg >= 4.0.0 not found in $PATH; please install it";
-    console.error(line);
-    global.server.socket.emit("SERVER_LOG_LINE", line);
+    const log = "FFmpeg >= 4.0.0 not found in $PATH; please install it";
+    console.error(log);
+    global.server.socket.emit("SERVER_LOG", log);
     process.exit(1);
   }
 
-  if (hasAudio) {
+  if (useAudio) {
     cmdCodec += " -map 0:a:0 -c:a copy";
   }
-  if (hasVideo) {
+  if (useVideo) {
     cmdCodec += " -map 0:v:0 -c:v copy";
 
-    if (hasH264) {
+    if (useH264) {
       cmdInputPath = `${__dirname}/recording/input-h264.sdp`;
       cmdOutputPath = `${__dirname}/recording/output-ffmpeg-h264.mp4`;
 
@@ -507,9 +488,9 @@ function startRecordingFfmpeg() {
     .trim();
 
   {
-    const line = `Run command: ${cmdProgram} ${cmdArgStr}`;
-    console.log(line);
-    global.server.socket.emit("SERVER_LOG_LINE", line);
+    const log = `Run command: ${cmdProgram} ${cmdArgStr}`;
+    console.log(log);
+    global.server.socket.emit("SERVER_LOG", log);
   }
 
   let recProcess = Process.spawn(cmdProgram, cmdArgStr.split(/\s+/));
@@ -542,7 +523,7 @@ function startRecordingFfmpeg() {
       .filter(Boolean) // Filter out empty strings
       .forEach(line => {
         console.log(line);
-        global.server.socket.emit("SERVER_LOG_LINE", line);
+        global.server.socket.emit("SERVER_LOG", line);
 
         if (line.startsWith("ffmpeg version")) {
           setTimeout(() => {
@@ -587,9 +568,9 @@ function startRecordingGstreamer() {
     resolve = res;
   });
 
-  const hasAudio = audioEnabled();
-  const hasVideo = videoEnabled();
-  const hasH264 = h264Enabled();
+  const useAudio = audioEnabled();
+  const useVideo = videoEnabled();
+  const useH264 = h264Enabled();
 
   let cmdInputPath = `${__dirname}/recording/input-vp8.sdp`;
   let cmdOutputPath = `${__dirname}/recording/output-gstreamer-vp8.webm`;
@@ -597,7 +578,7 @@ function startRecordingGstreamer() {
   let cmdAudioBranch = "";
   let cmdVideoBranch = "";
 
-  if (hasAudio) {
+  if (useAudio) {
     cmdAudioBranch =
       "\
       demux. ! queue \
@@ -606,8 +587,8 @@ function startRecordingGstreamer() {
       ! mux.";
   }
 
-  if (hasVideo) {
-    if (hasH264) {
+  if (useVideo) {
+    if (useH264) {
       cmdInputPath = `${__dirname}/recording/input-h264.sdp`;
       cmdOutputPath = `${__dirname}/recording/output-gstreamer-h264.mp4`;
       cmdMux = "mp4mux";
@@ -641,9 +622,9 @@ function startRecordingGstreamer() {
     .trim();
 
   {
-    const line = `Run command: ${cmdProgram} ${cmdArgStr}`;
-    console.log(line);
-    global.server.socket.emit("SERVER_LOG_LINE", line);
+    const log = `Run command: ${cmdProgram} ${cmdArgStr}`;
+    console.log(log);
+    global.server.socket.emit("SERVER_LOG", log);
   }
 
   let recProcess = Process.spawn(cmdProgram, cmdArgStr.split(/\s+/));
@@ -676,7 +657,7 @@ function startRecordingGstreamer() {
       .filter(Boolean) // Filter out empty strings
       .forEach(line => {
         console.log(line);
-        global.server.socket.emit("SERVER_LOG_LINE", line);
+        global.server.socket.emit("SERVER_LOG", line);
 
         if (line.startsWith("Setting pipeline to PLAYING")) {
           setTimeout(() => {
@@ -704,9 +685,9 @@ async function startRecordingExternal() {
     return new Promise(resolve => setTimeout(resolve, ms));
   };
   for (let time = timeout; time > 0; time--) {
-    const line = `Recording starts in ${time} seconds...`;
-    console.log(line);
-    global.server.socket.emit("SERVER_LOG_LINE", line);
+    const log = `Recording starts in ${time} seconds...`;
+    console.log(log);
+    global.server.socket.emit("SERVER_LOG", log);
 
     await sleep(1000);
   }
@@ -729,19 +710,19 @@ async function handleStopRecording() {
 // ----
 
 function stopMediasoupRtp() {
-  const line = "Stop mediasoup RTP transport and consumer";
-  console.log(line);
-  global.server.socket.emit("SERVER_LOG_LINE", line);
+  const log = "Stop mediasoup RTP transport and consumer";
+  console.log(log);
+  global.server.socket.emit("SERVER_LOG", log);
 
-  const hasAudio = audioEnabled();
-  const hasVideo = videoEnabled();
+  const useAudio = audioEnabled();
+  const useVideo = videoEnabled();
 
-  if (hasAudio) {
+  if (useAudio) {
     global.mediasoup.rtp.audioConsumer.close();
     global.mediasoup.rtp.audioTransport.close();
   }
 
-  if (hasVideo) {
+  if (useVideo) {
     global.mediasoup.rtp.videoConsumer.close();
     global.mediasoup.rtp.videoTransport.close();
   }

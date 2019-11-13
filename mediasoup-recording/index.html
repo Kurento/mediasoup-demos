@@ -7,11 +7,11 @@
     <!-- Disable favicon -->
     <link rel="icon" href="data:," />
 
-    <title>mediasoup demo - WebRTC recording</title>
+    <title>mediasoup demo - RTP recording</title>
   </head>
 
   <body>
-    <h1>mediasoup demo - WebRTC recording</h1>
+    <h1>mediasoup demo - RTP recording</h1>
     <p>
       This <b>mediasoup</b> demo receives the browser's webcam media using
       WebRTC (
@@ -48,11 +48,11 @@
     <div>
       Recording program:
       <label>
-        <input type="radio" name="uiRecorder" value="ffmpeg" checked />
+        <input type="radio" name="uiRecorder" value="ffmpeg" />
         FFmpeg
       </label>
       <label>
-        <input type="radio" name="uiRecorder" value="gstreamer" />
+        <input type="radio" name="uiRecorder" value="gstreamer" checked />
         GStreamer
       </label>
       <label>
@@ -82,12 +82,18 @@
     </div>
 
     <div>
-      <h2>Local video</h2>
-      <video id="uiLocalVideo" style="width: 320px" autoplay muted></video>
+      <h2>Local video (from webcam)</h2>
+      <video
+        id="uiLocalVideo"
+        style="width: 320px"
+        playsinline
+        autoplay
+        muted
+      ></video>
     </div>
 
     <div>
-      <h2>Recording process output</h2>
+      <h2>Console output</h2>
       <textarea
         id="uiConsole"
         style="width: 100%; height: 300px"

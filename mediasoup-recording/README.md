@@ -1,5 +1,5 @@
-mediasoup recording
-===================
+mediasoup demo - RTP recording
+==============================
 
 In this example, a browser's webcam media is transmitted to *mediasoup* using WebRTC ([WebRtcTransport](https://mediasoup.org/documentation/v3/mediasoup/api/#WebRtcTransport)); it is then served as a plain RTP stream ([PlainRtpTransport](https://mediasoup.org/documentation/v3/mediasoup/api/#PlainRtpTransport)) to be received and recorded by an external process.
 
@@ -49,7 +49,7 @@ npm install
 npm start
 ```
 
-Then wait for a message such as "`Server is running: https://127.0.0.1:8080`", and direct your browser to that URL.
+Then wait for a message such as "`Web server is running, port: 8080`", and direct your browser to that URL.
 
 
 

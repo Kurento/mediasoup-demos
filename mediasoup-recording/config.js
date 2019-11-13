@@ -29,12 +29,11 @@ module.exports = {
     },
 
     // RouterOptions
+    // -------
+    // WARNING
+    // These values MUST match those found in the input SDP file
+    // -------
     router: {
-      // -------
-      // WARNING
-      // These values MUST match those found in the input SDP file
-      // -------
-
       // RtpCodecCapability[]
       mediaCodecs: [
         {
@@ -65,7 +64,7 @@ module.exports = {
     },
 
     // WebRtcTransportOptions
-    webRtcTransport: {
+    webrtcTransport: {
       get listenIps() {
         return [{ ip: module.exports.https.internalIp, announcedIp: null }];
       },
@@ -83,14 +82,6 @@ module.exports = {
       },
       rtcpMux: true,
       comedia: false
-    },
-
-    recording: {
-      get ip() {
-        return module.exports.https.internalIp;
-      },
-      audioPort: 5006,
-      videoPort: 5004
     },
 
     client: {
@@ -115,6 +106,14 @@ module.exports = {
           videoGoogleStartBitrate: 1000
         }
       }
+    },
+
+    recording: {
+      get ip() {
+        return module.exports.https.internalIp;
+      },
+      audioPort: 5006,
+      videoPort: 5004
     }
   }
 };
