@@ -1,7 +1,7 @@
 {
   "name": "mediasoup-kurento-filter",
-  "version": "1.0.0",
   "description": "mediasoup demo - Kurento filter integration",
+  "version": "1.0.0",
   "main": "server.js",
   "scripts": {
     "prestart": "browserify client.js --outfile client-bundle.js --standalone client",
@@ -11,12 +11,6 @@
     "type": "git",
     "url": "https://github.com/Kurento/mediasoup-demos.git"
   },
-  "keywords": [
-    "mediasoup",
-    "kurento",
-    "webrtc",
-    "rtp"
-  ],
   "author": "Juan Navarro <juan.navarro@gmx.es> (https://github.com/j1elo)",
   "license": "Apache-2.0",
   "bugs": {
@@ -26,8 +20,8 @@
   "dependencies": {
     "browserify": "^16.5.0",
     "express": "^4.17.0",
-    "kurento-client": "^6.11.0",
-    "kurento-utils": "^6.11.0",
+    "kurento-client": "^6.0.0",
+    "kurento-utils": "^6.0.0",
     "mediasoup": "^3.2.0",
     "mediasoup-client": "^3.2.0",
     "sdp-transform": "^2.12.0",

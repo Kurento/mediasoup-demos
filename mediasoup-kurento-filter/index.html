@@ -13,33 +13,29 @@
   <body>
     <h1>mediasoup demo - Kurento filter integration</h1>
     <p>
-      This
-      <b><a href="https://mediasoup.org/" target="_blank">mediasoup</a></b> demo
-      receives the browser's webcam media using WebRTC (
+      This <i>mediasoup</i> demo receives the browser's webcam media using
+      WebRTC (
       <a
         href="https://mediasoup.org/documentation/v3/mediasoup/api/#WebRtcTransport"
         target="_blank"
         >WebRtcTransport</a
       >
-      ); it then sends the video to
-      <b><a href="https://www.kurento.org/" target="_blank">Kurento</a></b>
-      through RTP (
+      ); it then sends the video to <i>Kurento</i> through RTP (
       <a
         href="https://mediasoup.org/documentation/v3/mediasoup/api/#PlainRtpTransport"
         target="_blank"
         >PlainRtpTransport</a
-      >
-      ,
+      >,
       <a
         href="https://doc-kurento.readthedocs.io/en/stable/_static/client-jsdoc/module-elements.RtpEndpoint.html"
         target="_blank"
         >RtpEndpoint</a
-      >
-      ).
+      >).
     </p>
 
     <p>
-      <i>Kurento</i> will apply a filter to the incoming video (<a
+      <i>Kurento</i> will apply a filter to the incoming video (
+      <a
         href="https://doc-kurento.readthedocs.io/en/stable/_static/client-jsdoc/module-filters.GStreamerFilter.html"
         target="_blank"
         >GStreamerFilter</a
@@ -56,22 +52,34 @@
       <ol>
         <li><button id="uiStartWebRTC">Start WebRTC</button></li>
         <li><button id="uiConnectKurento">Connect Kurento</button></li>
+        <li><button id="uiDebug">Debug (print stats)</button></li>
       </ol>
     </div>
 
     <div>
       <div>
         <h2>Local video (from webcam)</h2>
-        <video id="uiLocalVideo" style="width: 320px" autoplay muted></video>
+        <video
+          id="uiLocalVideo"
+          style="width: 320px"
+          playsinline
+          autoplay
+          muted
+        ></video>
       </div>
       <div>
-        <h2>Remote video (from mediasoup)</h2>
-        <video id="uiRemoteVideo" style="width: 320px" autoplay></video>
+        <h2>Remote video (from mediasoup, filtered by Kurento)</h2>
+        <video
+          id="uiRemoteVideo"
+          style="width: 320px"
+          playsinline
+          autoplay
+        ></video>
       </div>
     </div>
 
     <div>
-      <h2>Debug output</h2>
+      <h2>Console output</h2>
       <textarea
         id="uiConsole"
         style="width: 100%; height: 300px"

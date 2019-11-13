@@ -45,22 +45,11 @@ module.exports = {
           preferredPayloadType: 96,
           clockRate: 90000
         }
-        // {
-        //   kind: "video",
-        //   mimeType: "video/H264",
-        //   preferredPayloadType: 125,
-        //   clockRate: 90000,
-        //   parameters: {
-        //     "level-asymmetry-allowed": 1,
-        //     "packetization-mode": 1,
-        //     "profile-level-id": "42e01f"
-        //   }
-        // }
       ]
     },
 
     // WebRtcTransportOptions
-    webRtcTransport: {
+    webrtcTransport: {
       get listenIps() {
         return [{ ip: module.exports.https.internalIp, announcedIp: null }];
       },
@@ -76,42 +65,21 @@ module.exports = {
       get listenIp() {
         return { ip: module.exports.https.internalIp, announcedIp: null };
       },
-
-      //[RTCP-MUX]
-      rtcpMux: true,
-      // rtcpMux: false,
-
-      comedia: false
+      rtcpMux: false
     },
 
     client: {
       // ProducerOptions
       videoProducer: {
+        // Single video stream (no simulcast)
         // RTCRtpEncodingParameters[]
-
-        // Single video stream (no SVC)
-        encodings: [
-          { maxBitrate: 100000 },
-        ],
-
-        // Send video with 3 simulcast streams
-        // encodings: [
-        //   {
-        //     maxBitrate: 100000
-        //     // maxFramerate: 15.0,
-        //     // scaleResolutionDownBy: 1.5,
-        //   },
-        //   { maxBitrate: 300000 },
-        //   { maxBitrate: 900000 }
-        // ],
-        // codecOptions: {
-        //   videoGoogleStartBitrate: 1000
-        // }
+        encodings: [{ maxBitrate: 100000 }]
       }
     }
   },
 
   kurento: {
+    ip: "127.0.0.1",
     port: 8888,
     wsPath: "/kurento"
   }
