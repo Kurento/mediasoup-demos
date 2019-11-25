@@ -86,12 +86,12 @@ function connectSocket() {
     console.error("WebSocket error:", err);
   });
 
-  socket.on("SERVER_LOG", log => {
+  socket.on("LOG", log => {
     ui.console.value += log + "\n";
     ui.console.scrollTop = ui.console.scrollHeight;
   });
 
-  socket.on("SERVER_PRODUCER_READY", kind => {
+  socket.on("WEBRTC_RECV_PRODUCER_READY", kind => {
     console.log(`Server producer is ready, kind: ${kind}`);
     switch (kind) {
       case "audio":
@@ -114,21 +114,21 @@ function connectSocket() {
 async function startWebRTC() {
   console.log("Start WebRTC transmission from browser to mediasoup");
 
-  const device = await startMediasoup();
-  const transport = await startTransport(device);
-  await startProducer(transport);
+  await startMediasoup();
+  await startWebrtcSend();
 }
 
 // ----
 
 async function startMediasoup() {
   const socket = global.server.socket;
+
   const socketRequest = SocketPromise(socket);
   const uiVCodecName = document.querySelector(
     "input[name='uiVCodecName']:checked"
   ).value;
   const response = await socketRequest({
-    type: "CLIENT_START_MEDIASOUP",
+    type: "START_MEDIASOUP",
     vCodecName: uiVCodecName
   });
   const routerRtpCapabilities = response.data;
@@ -141,7 +141,7 @@ async function startMediasoup() {
   } catch (err) {
     if (err.name === "UnsupportedError") {
       console.error("mediasoup-client doesn't support this browser");
-      return null;
+      return;
     }
   }
   global.mediasoup.device = device;
@@ -162,43 +162,49 @@ async function startMediasoup() {
   );
 
   // Uncomment for debug
-  // console.log("rtpCapabilities:\n%s", JSON.stringify(device.rtpCapabilities, null, 2));
-
-  return device;
+  // console.log("rtpCapabilities: %s", JSON.stringify(device.rtpCapabilities, null, 2));
 }
 
 // ----
 
-async function startTransport(device) {
+async function startWebrtcSend() {
+  const device = global.mediasoup.device;
   const socket = global.server.socket;
+
+  // mediasoup WebRTC transport
+  // --------------------------
+
   const socketRequest = SocketPromise(socket);
-  const response = await socketRequest({ type: "CLIENT_START_TRANSPORT" });
+  const response = await socketRequest({ type: "WEBRTC_RECV_START" });
   const webrtcTransportOptions = response.data;
 
-  console.log("[server] WebRTC transport created");
+  console.log("[server] WebRTC RECV transport created");
 
   const transport = await device.createSendTransport(webrtcTransportOptions);
   global.mediasoup.webrtc.transport = transport;
 
-  console.log("[client] WebRTC transport created");
+  console.log("[client] WebRTC SEND transport created");
 
   transport.on("connect", ({ dtlsParameters }, callback, _errback) => {
     // Signal local DTLS parameters to the server side transport
-    socket.emit("CLIENT_CONNECT_TRANSPORT", dtlsParameters);
+    socket.emit("WEBRTC_RECV_CONNECT", dtlsParameters);
     callback();
   });
 
-  return transport;
-}
+  transport.on("produce", (produceParameters, callback, _errback) => {
+    socket.emit("WEBRTC_RECV_PRODUCE", produceParameters, producerId => {
+      console.log("[server] WebRTC RECV producer created");
+      callback({ producerId });
+    });
+  });
 
-// ----
-
-async function startProducer(transport) {
-  const socket = global.server.socket;
+  // mediasoup WebRTC producer
+  // -------------------------
 
   // Get user media as required
 
   const uiMedia = document.querySelector("input[name='uiMedia']:checked").value;
+
   let useAudio = false;
   let useVideo = false;
   if (uiMedia.indexOf("audio") !== -1) {
@@ -219,12 +225,6 @@ async function startProducer(transport) {
 
   // Start mediasoup-client's WebRTC producer(s)
 
-  transport.on("produce", (produceParameters, callback, _errback) => {
-    socket.emit("CLIENT_START_PRODUCER", produceParameters, producerId => {
-      callback({ producerId });
-    });
-  });
-
   if (useAudio) {
     const audioTrack = stream.getAudioTracks()[0];
     const audioProducer = await transport.produce({ track: audioTrack });
@@ -243,17 +243,16 @@ async function startProducer(transport) {
 
 // ----------------------------------------------------------------------------
 
-// {start,stop}Recording
-// =====================
-
 function startRecording() {
   const uiRecorder = document.querySelector("input[name='uiRecorder']:checked")
     .value;
-  global.server.socket.emit("CLIENT_START_RECORDING", uiRecorder);
+  global.server.socket.emit("START_RECORDING", uiRecorder);
 }
 
+// ----------------------------------------------------------------------------
+
 function stopRecording() {
-  global.server.socket.emit("CLIENT_STOP_RECORDING");
+  global.server.socket.emit("STOP_RECORDING");
 }
 
 // ----------------------------------------------------------------------------

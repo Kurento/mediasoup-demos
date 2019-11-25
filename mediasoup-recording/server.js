@@ -7,6 +7,7 @@ const Https = require("https");
 const Mediasoup = require("mediasoup");
 const SocketServer = require("socket.io");
 const Process = require("child_process");
+const Util = require("util");
 
 // ----------------------------------------------------------------------------
 
@@ -27,7 +28,7 @@ const global = {
 
     // WebRTC connection with the browser
     webrtc: {
-      transport: null,
+      recvTransport: null,
       audioProducer: null,
       videoProducer: null
     },
@@ -43,6 +44,21 @@ const global = {
 
   recProcess: null
 };
+
+// ----------------------------------------------------------------------------
+
+// Logging
+// =======
+
+["log", "info", "warn", "error"].forEach(function(name) {
+  const method = console[name];
+  console[name] = function(...args) {
+    method(...args);
+    if (global.server.socket) {
+      global.server.socket.emit("LOG", Util.format(...args));
+    }
+  };
+});
 
 // ----------------------------------------------------------------------------
 
@@ -101,10 +117,10 @@ const global = {
 
     // Events sent by the client's "socket.io-client" have a name
     // that we use as identifier
-    socket.on("CLIENT_CONNECT_TRANSPORT", handleConnectTransport);
-    socket.on("CLIENT_START_PRODUCER", handleStartProducer);
-    socket.on("CLIENT_START_RECORDING", handleStartRecording);
-    socket.on("CLIENT_STOP_RECORDING", handleStopRecording);
+    socket.on("WEBRTC_RECV_CONNECT", handleWebrtcRecvConnect);
+    socket.on("WEBRTC_RECV_PRODUCE", handleWebrtcRecvProduce);
+    socket.on("START_RECORDING", handleStartRecording);
+    socket.on("STOP_RECORDING", handleStopRecording);
   });
 }
 
@@ -114,11 +130,11 @@ async function handleRequest(request, callback) {
   let responseData = null;
 
   switch (request.type) {
-    case "CLIENT_START_MEDIASOUP":
+    case "START_MEDIASOUP":
       responseData = await handleStartMediasoup(request.vCodecName);
       break;
-    case "CLIENT_START_TRANSPORT":
-      responseData = await handleStartTransport();
+    case "WEBRTC_RECV_START":
+      responseData = await handleWebrtcRecvStart();
       break;
     default:
       console.warn("Invalid request type:", request.type);
@@ -180,7 +196,7 @@ async function handleStartMediasoup(vCodecName) {
   if (!audioCodec) {
     const log = "Undefined codec mime type: audio/opus -- Check config.js";
     console.error(log);
-    global.server.socket.emit("SERVER_LOG", log);
+    global.server.socket.emit("LOG", log);
     process.exit(1);
   }
   routerOptions.mediaCodecs.push(audioCodec);
@@ -191,7 +207,7 @@ async function handleStartMediasoup(vCodecName) {
   if (!videoCodec) {
     const log = `Undefined codec mime type: video/${vCodecName} -- Check config.js`;
     console.error(log);
-    global.server.socket.emit("SERVER_LOG", log);
+    global.server.socket.emit("LOG", log);
     process.exit(1);
   }
   routerOptions.mediaCodecs.push(videoCodec);
@@ -206,7 +222,7 @@ async function handleStartMediasoup(vCodecName) {
   console.log("mediasoup router created");
 
   // Uncomment for debug
-  // console.log("rtpCapabilities:\n%s", JSON.stringify(router.rtpCapabilities, null, 2));
+  // console.log("rtpCapabilities: %s", JSON.stringify(router.rtpCapabilities, null, 2));
 
   return router.rtpCapabilities;
 }
@@ -215,26 +231,26 @@ async function handleStartMediasoup(vCodecName) {
 
 // Creates a mediasoup WebRTC transport
 
-async function handleStartTransport() {
+async function handleWebrtcRecvStart() {
   const router = global.mediasoup.router;
 
-  const webrtcTransport = await router.createWebRtcTransport(
+  const transport = await router.createWebRtcTransport(
     CONFIG.mediasoup.webrtcTransport
   );
-  global.mediasoup.webrtc.transport = webrtcTransport;
+  global.mediasoup.webrtc.recvTransport = transport;
 
   console.log("mediasoup WebRTC RECV transport created");
 
   const webrtcTransportOptions = {
-    id: webrtcTransport.id,
-    iceParameters: webrtcTransport.iceParameters,
-    iceCandidates: webrtcTransport.iceCandidates,
-    dtlsParameters: webrtcTransport.dtlsParameters,
-    sctpParameters: webrtcTransport.sctpParameters
+    id: transport.id,
+    iceParameters: transport.iceParameters,
+    iceCandidates: transport.iceCandidates,
+    dtlsParameters: transport.dtlsParameters,
+    sctpParameters: transport.sctpParameters
   };
 
   // Uncomment for debug
-  // console.log("webrtcTransportOptions:\n%s", JSON.stringify(webrtcTransportOptions, null, 2));
+  // console.log("webrtcTransportOptions: %s", JSON.stringify(webrtcTransportOptions, null, 2));
 
   return webrtcTransportOptions;
 }
@@ -243,22 +259,22 @@ async function handleStartTransport() {
 
 // Calls WebRtcTransport.connect() whenever the browser client part is ready
 
-async function handleConnectTransport(dtlsParameters) {
-  const webrtcTransport = global.mediasoup.webrtc.transport;
+async function handleWebrtcRecvConnect(dtlsParameters) {
+  const transport = global.mediasoup.webrtc.recvTransport;
 
-  await webrtcTransport.connect({ dtlsParameters });
+  await transport.connect({ dtlsParameters });
 
-  console.log("mediasoup WebRTC transport connected");
+  console.log("mediasoup WebRTC RECV transport connected");
 }
 
 // ----------------------------------------------------------------------------
 
 // Calls WebRtcTransport.produce() to start receiving media from the browser
 
-async function handleStartProducer(produceParameters, callback) {
-  const webrtcTransport = global.mediasoup.webrtc.transport;
+async function handleWebrtcRecvProduce(produceParameters, callback) {
+  const transport = global.mediasoup.webrtc.recvTransport;
 
-  const producer = await webrtcTransport.produce(produceParameters);
+  const producer = await transport.produce(produceParameters);
   switch (producer.kind) {
     case "audio":
       global.mediasoup.webrtc.audioProducer = producer;
@@ -268,17 +284,17 @@ async function handleStartProducer(produceParameters, callback) {
       break;
   }
 
-  global.server.socket.emit("SERVER_PRODUCER_READY", producer.kind);
+  global.server.socket.emit("WEBRTC_RECV_PRODUCER_READY", producer.kind);
 
   console.log(
-    "mediasoup WebRTC producer created, kind: %s, type: %s, paused: %s",
+    "mediasoup WebRTC RECV producer created, kind: %s, type: %s, paused: %s",
     producer.kind,
     producer.type,
     producer.paused
   );
 
   // Uncomment for debug
-  // console.log("rtpParameters:\n%s", JSON.stringify(producer.rtpParameters, null, 2));
+  // console.log("rtpParameters: %s", JSON.stringify(producer.rtpParameters, null, 2));
 
   callback(producer.id);
 }
@@ -287,6 +303,7 @@ async function handleStartProducer(produceParameters, callback) {
 
 async function handleStartRecording(recorder) {
   const router = global.mediasoup.router;
+
   const useAudio = audioEnabled();
   const useVideo = videoEnabled();
 
@@ -450,7 +467,7 @@ function startRecordingFfmpeg() {
   if (!ffmpegOk) {
     const log = "FFmpeg >= 4.0.0 not found in $PATH; please install it";
     console.error(log);
-    global.server.socket.emit("SERVER_LOG", log);
+    global.server.socket.emit("LOG", log);
     process.exit(1);
   }
 
@@ -490,7 +507,7 @@ function startRecordingFfmpeg() {
   {
     const log = `Run command: ${cmdProgram} ${cmdArgStr}`;
     console.log(log);
-    global.server.socket.emit("SERVER_LOG", log);
+    global.server.socket.emit("LOG", log);
   }
 
   let recProcess = Process.spawn(cmdProgram, cmdArgStr.split(/\s+/));
@@ -523,7 +540,7 @@ function startRecordingFfmpeg() {
       .filter(Boolean) // Filter out empty strings
       .forEach(line => {
         console.log(line);
-        global.server.socket.emit("SERVER_LOG", line);
+        global.server.socket.emit("LOG", line);
 
         if (line.startsWith("ffmpeg version")) {
           setTimeout(() => {
@@ -624,7 +641,7 @@ function startRecordingGstreamer() {
   {
     const log = `Run command: ${cmdProgram} ${cmdArgStr}`;
     console.log(log);
-    global.server.socket.emit("SERVER_LOG", log);
+    global.server.socket.emit("LOG", log);
   }
 
   let recProcess = Process.spawn(cmdProgram, cmdArgStr.split(/\s+/));
@@ -657,7 +674,7 @@ function startRecordingGstreamer() {
       .filter(Boolean) // Filter out empty strings
       .forEach(line => {
         console.log(line);
-        global.server.socket.emit("SERVER_LOG", line);
+        global.server.socket.emit("LOG", line);
 
         if (line.startsWith("Setting pipeline to PLAYING")) {
           setTimeout(() => {
@@ -687,7 +704,7 @@ async function startRecordingExternal() {
   for (let time = timeout; time > 0; time--) {
     const log = `Recording starts in ${time} seconds...`;
     console.log(log);
-    global.server.socket.emit("SERVER_LOG", log);
+    global.server.socket.emit("LOG", log);
 
     await sleep(1000);
   }
@@ -712,7 +729,7 @@ async function handleStopRecording() {
 function stopMediasoupRtp() {
   const log = "Stop mediasoup RTP transport and consumer";
   console.log(log);
-  global.server.socket.emit("SERVER_LOG", log);
+  global.server.socket.emit("LOG", log);
 
   const useAudio = audioEnabled();
   const useVideo = videoEnabled();

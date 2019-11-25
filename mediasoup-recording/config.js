@@ -14,7 +14,7 @@ module.exports = {
     // WorkerSettings
     worker: {
       // "debug", "warn", "error", "none"
-      logLevel: "warn",
+      logLevel: "debug",
       logTags: [
         "info",
         "ice",
