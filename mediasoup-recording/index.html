@@ -13,16 +13,13 @@
   <body>
     <h1>mediasoup demo - RTP recording</h1>
     <p>
-      This <b>mediasoup</b> demo receives the browser's webcam media using
-      WebRTC (
-      <a
+      This <i>mediasoup</i> demo receives the browser's webcam media using
+      WebRTC (<a
         href="https://mediasoup.org/documentation/v3/mediasoup/api/#WebRtcTransport"
         target="_blank"
         >WebRtcTransport</a
-      >
-      ); it then starts an external recording process, and sends the media to it
-      through RTP (
-      <a
+      >); it then starts an external recording process, and sends the media to
+      it through RTP (<a
         href="https://mediasoup.org/documentation/v3/mediasoup/api/#PlainRtpTransport"
         target="_blank"
         >PlainRtpTransport</a
@@ -30,17 +27,10 @@
     </p>
 
     <p>
-      To install the required tools in Debian/Ubuntu, run the following commands
-      in a terminal:
+      <strong>Important</strong>: Check the
+      <a href="README.md" target="_blank">README file</a> for setup
+      instructions.
     </p>
-    <pre>
-      sudo apt-get update && sudo apt-get install --yes \
-        ffmpeg \
-        gstreamer1.0-plugins-good \
-        gstreamer1.0-plugins-bad \
-        gstreamer1.0-plugins-ugly \
-        gstreamer1.0-tools
-    </pre>
 
     <div>
       Media:
@@ -113,7 +103,8 @@
         readonly
       ></textarea>
     </div>
-  </body>
 
-  <script src="client-bundle.js"></script>
+    <script src="https://webrtchacks.github.io/adapter/adapter-latest.js"></script>
+    <script src="client-bundle.js"></script>
+  </body>
 </html>

@@ -3,10 +3,10 @@ o=- 0 0 IN IP4 127.0.0.1
 s=-
 c=IN IP4 127.0.0.1
 t=0 0
-m=audio 5006 RTP/AVP 111
-a=rtcp-mux
+m=audio 5004 RTP/AVPF 111
+a=rtcp:5005
 a=rtpmap:111 opus/48000/2
 a=fmtp:111 minptime=10;useinbandfec=1
-m=video 5004 RTP/AVP 96
-a=rtcp-mux
+m=video 5006 RTP/AVPF 96
+a=rtcp:5007
 a=rtpmap:96 VP8/90000

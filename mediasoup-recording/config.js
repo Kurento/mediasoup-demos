@@ -2,8 +2,6 @@ module.exports = {
   https: {
     cert: "../cert/cert.pem",
     certKey: "../cert/key.pem",
-    ip: "127.0.0.1",
-    internalIp: "127.0.0.1",
     port: 8080,
     wsPath: "/server",
     wsPingInterval: 25000,
@@ -16,12 +14,12 @@ module.exports = {
       // "debug", "warn", "error", "none"
       logLevel: "debug",
       logTags: [
-        "info",
-        "ice",
         "dtls",
+        "ice",
+        "info",
         "rtp",
-        "srtp",
-        "rtcp"
+        "rtcp",
+        "srtp"
         // "rtx", "bwe", "score", "simulcast", "svc", "sctp",
       ],
       rtcMinPort: 32256,
@@ -41,7 +39,11 @@ module.exports = {
           mimeType: "audio/opus",
           preferredPayloadType: 111,
           clockRate: 48000,
-          channels: 2
+          channels: 2,
+          parameters: {
+            minptime: 10,
+            useinbandfec: 1
+          }
         },
         {
           kind: "video",
@@ -65,9 +67,7 @@ module.exports = {
 
     // WebRtcTransportOptions
     webrtcTransport: {
-      get listenIps() {
-        return [{ ip: module.exports.https.internalIp, announcedIp: null }];
-      },
+      listenIps: [{ ip: "127.0.0.1", announcedIp: null }],
       enableUdp: true,
       enableTcp: true,
       preferUdp: true,
@@ -77,11 +77,11 @@ module.exports = {
 
     // PlainRtpTransportOptions
     plainRtpTransport: {
-      get listenIp() {
-        return { ip: module.exports.https.internalIp, announcedIp: null };
-      },
-      rtcpMux: true,
-      comedia: false
+      listenIp: { ip: "127.0.0.1", announcedIp: null },
+      comedia: false,
+
+      // FFmpeg does not support RTP/RTCP multiplexing ("rtcp-mux")
+      rtcpMux: false
     },
 
     client: {
@@ -108,12 +108,19 @@ module.exports = {
       }
     },
 
+    // Target IP and port for RTP recording
     recording: {
-      get ip() {
-        return module.exports.https.internalIp;
-      },
-      audioPort: 5006,
-      videoPort: 5004
+      ip: "127.0.0.1",
+
+
+      audioPort: 5004,
+      audioPortRtcp: 5005,
+      videoPort: 5006,
+      videoPortRtcp: 5007
     }
+  },
+
+  gstreamer: {
+    logLevel: "4,GST_*:3" // $GST_DEBUG environment variable
   }
 };

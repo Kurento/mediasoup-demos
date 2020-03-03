@@ -55,15 +55,24 @@ ui.stopRecording.onclick = stopRecording;
 
 // ----------------------------------------------------------------------------
 
-window.onload = () => {
+window.addEventListener("load", function() {
   console.log("Page load, connect WebSocket");
   connectSocket();
-};
 
-window.onbeforeunload = () => {
+  if ("adapter" in window) {
+    console.log(
+      // eslint-disable-next-line no-undef
+      `webrtc-adapter loaded, browser: '${adapter.browserDetails.browser}', version: '${adapter.browserDetails.version}'`
+    );
+  } else {
+    console.warn("webrtc-adapter is not loaded! an install or config issue?");
+  }
+});
+
+window.addEventListener("beforeunload", function() {
   console.log("Page unload, close WebSocket");
   global.server.socket.close();
-};
+});
 
 // ----
 
@@ -139,19 +148,16 @@ async function startMediasoup() {
   try {
     device = new MediasoupClient.Device();
   } catch (err) {
-    if (err.name === "UnsupportedError") {
-      console.error("mediasoup-client doesn't support this browser");
-      return;
-    }
+    console.error(err);
+    return;
   }
   global.mediasoup.device = device;
 
   try {
     await device.load({ routerRtpCapabilities });
   } catch (err) {
-    if (err.name === "InvalidStateError") {
-      console.warn("mediasoup device was already loaded");
-    }
+    console.error(err);
+    return;
   }
 
   console.log(
@@ -180,7 +186,13 @@ async function startWebrtcSend() {
 
   console.log("[server] WebRTC RECV transport created");
 
-  const transport = await device.createSendTransport(webrtcTransportOptions);
+  let transport;
+  try {
+    transport = await device.createSendTransport(webrtcTransportOptions);
+  } catch (err) {
+    console.error(err);
+    return;
+  }
   global.mediasoup.webrtc.transport = transport;
 
   console.log("[client] WebRTC SEND transport created");
@@ -216,10 +228,16 @@ async function startWebrtcSend() {
     global.recording.waitForVideo = true;
   }
 
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio: useAudio,
-    video: useVideo
-  });
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: useAudio,
+      video: useVideo
+    });
+  } catch (err) {
+    console.error(err);
+    return;
+  }
 
   ui.localVideo.srcObject = stream;
 
