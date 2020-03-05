@@ -155,7 +155,7 @@ async function handleRequest(request, callback) {
       responseData = await handleStartMediasoup();
       break;
     case "START_KURENTO":
-      await handleStartKurento();
+      await handleStartKurento(request.enableSrtp);
       break;
     case "WEBRTC_RECV_START":
       responseData = await handleWebrtcRecvStart();
@@ -361,15 +361,15 @@ async function handleWebrtcSendConsume(rtpCapabilities) {
 
 // ----------------------------------------------------------------------------
 
-async function handleStartKurento() {
+async function handleStartKurento(enableSrtp) {
   // Start client connection to Kurento Media Server
   await startKurento();
 
   // Send media to Kurento
-  await startKurentoRtpConsumer();
+  await startKurentoRtpConsumer(enableSrtp);
 
   // Receive media from Kurento
-  await startKurentoRtpProducer();
+  await startKurentoRtpProducer(enableSrtp);
 
   // Build the internal Kurento filter pipeline
   await startKurentoFilter();
@@ -381,12 +381,12 @@ async function startKurento() {
   const kurentoUrl = `ws://${CONFIG.kurento.ip}:${CONFIG.kurento.port}${CONFIG.kurento.wsPath}`;
   console.log("Connect with Kurento Media Server:", kurentoUrl);
 
-  const client = new KurentoClient(kurentoUrl);
-  global.kurento.client = client;
+  const kmsClient = new KurentoClient(kurentoUrl);
+  global.kurento.client = kmsClient;
   console.log("Kurento client connected");
 
-  const pipeline = await client.create("MediaPipeline");
-  global.kurento.pipeline = pipeline;
+  const kmsPipeline = await kmsClient.create("MediaPipeline");
+  global.kurento.pipeline = kmsPipeline;
   console.log("Kurento pipeline created");
 }
 
@@ -432,12 +432,17 @@ function getRtcpParameters(sdpObject, kind) {
 
 // ----
 
-async function startKurentoRtpConsumer() {
+async function startKurentoRtpConsumer(enableSrtp) {
   const msRouter = global.mediasoup.router;
   const kmsPipeline = global.kurento.pipeline;
 
   // mediasoup RTP transport
   // -----------------------
+
+  let srtpCryptoSuite = undefined;
+  if (enableSrtp) {
+    srtpCryptoSuite = "AES_CM_128_HMAC_SHA1_80";
+  }
 
   const msTransport = await msRouter.createPlainRtpTransport({
     // COMEDIA mode must be disabled here: the corresponding Kurento RtpEndpoint
@@ -447,6 +452,10 @@ async function startKurentoRtpConsumer() {
 
     // Kurento RtpEndpoint doesn't support RTP/RTCP multiplexing ("a=rtcp-mux" in SDP)
     rtcpMux: false,
+
+    // Enable SRTP if requested
+    enableSrtp: enableSrtp,
+    srtpCryptoSuite: srtpCryptoSuite,
 
     ...CONFIG.mediasoup.plainRtpTransport
   });
@@ -513,37 +522,59 @@ async function startKurentoRtpConsumer() {
   // Kurento RtpEndpoint (Receive media from mediasoup)
   // --------------------------------------------------
 
-  const msListenIp = msTransport.tuple.localIp;
-  const msListenPort = msTransport.tuple.localPort;
-  const msListenPortRtcp = msTransport.rtcpTuple.localPort;
+  const sdpListenIp = msTransport.tuple.localIp;
+  const sdpListenPort = msTransport.tuple.localPort;
+  const sdpListenPortRtcp = msTransport.rtcpTuple.localPort;
 
-  const msSsrc = msConsumer.rtpParameters.encodings[0].ssrc;
-  const msCname = msConsumer.rtpParameters.rtcp.cname;
+  const sdpSsrc = msConsumer.rtpParameters.encodings[0].ssrc;
+  const sdpCname = msConsumer.rtpParameters.rtcp.cname;
+
+  let sdpProtocol = "RTP/AVPF";
+  let sdpCryptoAttr = "";
+  let kmsCrypto = undefined;
+
+  if (enableSrtp) {
+    // Use SRTP protocol
+    sdpProtocol = "RTP/SAVPF";
+
+    // Kurento uses this to decrypt the sender's inbound SRTP/SRTCP
+    const keyBase64 = CONFIG.srtp.keyBase64;
+    sdpCryptoAttr = `a=crypto:2 AES_CM_128_HMAC_SHA1_80 inline:${keyBase64}|2^31|1:1`;
+
+    // Kurento uses this to encrypt its own outbound SRTCP
+    kmsCrypto = KurentoClient.getComplexType("SDES")({
+      keyBase64: keyBase64,
+      crypto: "AES_128_CM_HMAC_SHA1_80"
+    });
+  }
 
   // SDP Offer for Kurento RtpEndpoint
   // prettier-ignore
   const kmsSdpOffer =
     "v=0\r\n" +
-    `o=- 0 0 IN IP4 ${msListenIp}\r\n` +
+    `o=- 0 0 IN IP4 ${sdpListenIp}\r\n` +
     "s=-\r\n" +
-    `c=IN IP4 ${msListenIp}\r\n` +
+    `c=IN IP4 ${sdpListenIp}\r\n` +
     "t=0 0\r\n" +
-    `m=video ${msListenPort} RTP/AVPF ${msPayloadType}\r\n` +
-    `a=rtcp:${msListenPortRtcp}\r\n` +
+    `m=video ${sdpListenPort} ${sdpProtocol} ${msPayloadType}\r\n` +
+    `a=rtcp:${sdpListenPortRtcp}\r\n` +
+    `${sdpCryptoAttr}\r\n` +
     "a=sendonly\r\n" +
     `a=rtpmap:${msPayloadType} VP8/90000\r\n` +
     `a=rtcp-fb:${msPayloadType} goog-remb\r\n` +
     `a=rtcp-fb:${msPayloadType} ccm fir\r\n` +
     `a=rtcp-fb:${msPayloadType} nack\r\n` +
     `a=rtcp-fb:${msPayloadType} nack pli\r\n` +
-    `a=ssrc:${msSsrc} cname:${msCname}\r\n` +
+    `a=ssrc:${sdpSsrc} cname:${sdpCname}\r\n` +
     "";
 
-  const kmsEndpoint = await kmsPipeline.create("RtpEndpoint");
-  global.kurento.rtp.recvEndpoint = kmsEndpoint;
+  const kmsRtpEndpoint = await kmsPipeline.create("RtpEndpoint", {
+    crypto: kmsCrypto
+  });
+  global.kurento.rtp.recvEndpoint = kmsRtpEndpoint;
 
   console.log("SDP Offer from App to Kurento RTP RECV:\n%s", kmsSdpOffer);
-  const kmsSdpAnswer = await kmsEndpoint.processOffer(kmsSdpOffer);
+  const kmsSdpAnswer = await kmsRtpEndpoint.processOffer(kmsSdpOffer);
   console.log("SDP Answer from Kurento RTP RECV to App:\n%s", kmsSdpAnswer);
 
   // NOTE: A real application would need to parse this SDP Answer and adapt to
@@ -589,10 +620,21 @@ async function startKurentoRtpConsumer() {
     kmsIp = "127.0.0.1";
   }
 
+  // Connect the mediasoup transport to enable sending (S)RTP packets
+
+  let srtpParameters = undefined;
+  if (enableSrtp) {
+    srtpParameters = {
+      cryptoSuite: srtpCryptoSuite,
+      keyBase64: CONFIG.srtp.keyBase64
+    };
+  }
+
   await msTransport.connect({
     ip: kmsIp,
     port: rtpPort,
-    rtcpPort: rtcpPort
+    rtcpPort: rtcpPort,
+    srtpParameters: srtpParameters
   });
 
   console.log(
@@ -616,12 +658,17 @@ async function startKurentoRtpConsumer() {
 
 // ----
 
-async function startKurentoRtpProducer() {
+async function startKurentoRtpProducer(enableSrtp) {
   const msRouter = global.mediasoup.router;
   const kmsPipeline = global.kurento.pipeline;
 
   // mediasoup RTP transport
   // -----------------------
+
+  let srtpCryptoSuite = undefined;
+  if (enableSrtp) {
+    srtpCryptoSuite = "AES_CM_128_HMAC_SHA1_80";
+  }
 
   const msTransport = await msRouter.createPlainRtpTransport({
     // There is no need to `connect()` this transport: with COMEDIA enabled,
@@ -631,6 +678,10 @@ async function startKurentoRtpProducer() {
 
     // Kurento RtpEndpoint doesn't support RTP/RTCP multiplexing ("a=rtcp-mux" in SDP)
     rtcpMux: false,
+
+    // Enable SRTP if requested
+    enableSrtp: enableSrtp,
+    srtpCryptoSuite: srtpCryptoSuite,
 
     ...CONFIG.mediasoup.plainRtpTransport
   });
@@ -650,39 +701,85 @@ async function startKurentoRtpProducer() {
     msTransport.rtcpTuple.protocol
   );
 
+  // COMEDIA is enabled, so the transport connection will happen asynchronously
+
+  msTransport.on("tuple", tuple => {
+    console.log(
+      "mediasoup RTP RECV transport connected: %s:%d <--> %s:%d (%s)",
+      tuple.localIp,
+      tuple.localPort,
+      tuple.remoteIp,
+      tuple.remotePort,
+      tuple.protocol
+    );
+  });
+
+  msTransport.on("rtcptuple", rtcpTuple => {
+    console.log(
+      "mediasoup RTCP RECV transport connected: %s:%d <--> %s:%d (%s)",
+      rtcpTuple.localIp,
+      rtcpTuple.localPort,
+      rtcpTuple.remoteIp,
+      rtcpTuple.remotePort,
+      rtcpTuple.protocol
+    );
+  });
+
   // Kurento RtpEndpoint (Send media to mediasoup)
   // ---------------------------------------------
 
-  const msPayloadType = getMsPayloadType("video");
+  const sdpPayloadType = getMsPayloadType("video");
 
-  const msListenIp = msTransport.tuple.localIp;
-  const msListenPort = msTransport.tuple.localPort;
-  const msListenPortRtcp = msTransport.rtcpTuple.localPort;
+  const sdpListenIp = msTransport.tuple.localIp;
+  const sdpListenPort = msTransport.tuple.localPort;
+  const sdpListenPortRtcp = msTransport.rtcpTuple.localPort;
+
+  let sdpProtocol = "RTP/AVPF";
+  let sdpCryptoAttr = "";
+  let kmsCrypto = undefined;
+
+  if (enableSrtp) {
+    // Use SRTP protocol
+    sdpProtocol = "RTP/SAVPF";
+
+    // Kurento uses this to decrypt the sender's inbound SRTCP
+    const keyBase64 = CONFIG.srtp.keyBase64;
+    sdpCryptoAttr = `a=crypto:2 AES_CM_128_HMAC_SHA1_80 inline:${keyBase64}|2^31|1:1`;
+
+    // Kurento uses this to encrypt its own outbound SRTP/SRTCP
+    kmsCrypto = KurentoClient.getComplexType("SDES")({
+      keyBase64: keyBase64,
+      crypto: "AES_128_CM_HMAC_SHA1_80"
+    });
+  }
 
   // SDP Offer for Kurento RtpEndpoint
   // prettier-ignore
   const kmsSdpOffer =
     "v=0\r\n" +
-    `o=- 0 0 IN IP4 ${msListenIp}\r\n` +
+    `o=- 0 0 IN IP4 ${sdpListenIp}\r\n` +
     "s=-\r\n" +
-    `c=IN IP4 ${msListenIp}\r\n` +
+    `c=IN IP4 ${sdpListenIp}\r\n` +
     "t=0 0\r\n" +
-    `m=video ${msListenPort} RTP/AVPF ${msPayloadType}\r\n` +
-    `a=rtcp:${msListenPortRtcp}\r\n` +
+    `m=video ${sdpListenPort} ${sdpProtocol} ${sdpPayloadType}\r\n` +
+    `a=rtcp:${sdpListenPortRtcp}\r\n` +
+    `${sdpCryptoAttr}\r\n` +
     "a=recvonly\r\n" +
-    `a=rtpmap:${msPayloadType} VP8/90000\r\n` +
-    `a=rtcp-fb:${msPayloadType} goog-remb\r\n` +
-    `a=rtcp-fb:${msPayloadType} ccm fir\r\n` +
-    `a=rtcp-fb:${msPayloadType} nack\r\n` +
-    `a=rtcp-fb:${msPayloadType} nack pli\r\n` +
+    `a=rtpmap:${sdpPayloadType} VP8/90000\r\n` +
+    `a=rtcp-fb:${sdpPayloadType} goog-remb\r\n` +
+    `a=rtcp-fb:${sdpPayloadType} ccm fir\r\n` +
+    `a=rtcp-fb:${sdpPayloadType} nack\r\n` +
+    `a=rtcp-fb:${sdpPayloadType} nack pli\r\n` +
     "";
 
-  const kmsEndpoint = await kmsPipeline.create("RtpEndpoint");
-  global.kurento.rtp.sendEndpoint = kmsEndpoint;
-  await kmsEndpoint.setMaxVideoSendBandwidth(2000); // Send max 2 mbps
+  const kmsRtpEndpoint = await kmsPipeline.create("RtpEndpoint", {
+    crypto: kmsCrypto
+  });
+  global.kurento.rtp.sendEndpoint = kmsRtpEndpoint;
+  await kmsRtpEndpoint.setMaxVideoSendBandwidth(2000); // Send max 2 mbps
 
   console.log("SDP Offer from App to Kurento RTP SEND:\n%s", kmsSdpOffer);
-  const kmsSdpAnswer = await kmsEndpoint.processOffer(kmsSdpOffer);
+  const kmsSdpAnswer = await kmsRtpEndpoint.processOffer(kmsSdpOffer);
   console.log("SDP Answer from Kurento RTP SEND to App:\n%s", kmsSdpAnswer);
 
   // NOTE: A real application would need to parse this SDP Answer and adapt to
@@ -749,6 +846,20 @@ async function startKurentoRtpProducer() {
     msProducer.type,
     msProducer.paused
   );
+
+  // Connect the mediasoup transport to enable receiving SRTP packets
+
+  let srtpParameters = undefined;
+  if (enableSrtp) {
+    srtpParameters = {
+      cryptoSuite: srtpCryptoSuite,
+      keyBase64: CONFIG.srtp.keyBase64
+    };
+
+    await msTransport.connect({
+      srtpParameters: srtpParameters
+    });
+  }
 }
 
 // ----

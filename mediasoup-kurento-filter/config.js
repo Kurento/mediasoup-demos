@@ -79,5 +79,11 @@ module.exports = {
     ip: "127.0.0.1",
     port: 8888,
     wsPath: "/kurento"
+  },
+
+  srtp: {
+    // Required format: AES CM 128 bit (30 bytes or characters in plain text format)
+    // Plain text: "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234"
+    keyBase64: "QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVoxMjM0"
   }
 };

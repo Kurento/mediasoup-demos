@@ -242,8 +242,16 @@ async function startWebrtcSend() {
 async function connectKurento() {
   const socket = global.server.socket;
 
+  // Start an (S)RTP transport as required
+
+  const uiTransport = document.querySelector("input[name='uiTransport']:checked").value;
+  let enableSrtp = false;
+  if (uiTransport.indexOf("srtp") !== -1) {
+    enableSrtp = true;
+  }
+
   const socketRequest = SocketPromise(socket);
-  await socketRequest({ type: "START_KURENTO" });
+  await socketRequest({ type: "START_KURENTO", enableSrtp: enableSrtp });
   await startWebrtcRecv();
 }
 
