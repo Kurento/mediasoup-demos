@@ -14,14 +14,11 @@
     <h1>mediasoup demo - Kurento filter integration</h1>
     <p>
       This <i>mediasoup</i> demo receives the browser's webcam media using
-      WebRTC (
-      <a
+      WebRTC (<a
         href="https://mediasoup.org/documentation/v3/mediasoup/api/#WebRtcTransport"
         target="_blank"
         >WebRtcTransport</a
-      >
-      ); it then sends the video to <i>Kurento</i> through RTP (
-      <a
+      >); it then sends the video to <i>Kurento</i> through RTP (<a
         href="https://mediasoup.org/documentation/v3/mediasoup/api/#PlainRtpTransport"
         target="_blank"
         >PlainRtpTransport</a
@@ -34,8 +31,7 @@
     </p>
 
     <p>
-      <i>Kurento</i> will apply a filter to the incoming video (
-      <a
+      <i>Kurento</i> will apply a filter to the incoming video (<a
         href="https://doc-kurento.readthedocs.io/en/stable/_static/client-jsdoc/module-filters.GStreamerFilter.html"
         target="_blank"
         >GStreamerFilter</a
@@ -48,11 +44,17 @@
       demo.
     </p>
 
+    <p>
+      <strong>Important</strong>: Check the
+      <a href="README.md" target="_blank">README file</a> for setup
+      instructions.
+    </p>
+
     <div>
       <ol>
         <li><button id="uiStartWebRTC">Start WebRTC</button></li>
-        <li><button id="uiConnectKurento">Connect Kurento</button></li>
-        <li><button id="uiDebug">Debug (print stats)</button></li>
+        <li><button id="uiConnectKurento" disabled>Connect Kurento</button></li>
+        <li><button id="uiDebug" disabled>Debug (print stats)</button></li>
       </ol>
     </div>
 
@@ -86,7 +88,8 @@
         readonly
       ></textarea>
     </div>
-  </body>
 
-  <script src="client-bundle.js"></script>
+    <script src="https://webrtchacks.github.io/adapter/adapter-latest.js"></script>
+    <script src="client-bundle.js"></script>
+  </body>
 </html>

@@ -98,7 +98,9 @@ const global = {
   global.server.https = https;
 
   https.on("listening", () => {
-    console.log("Web server is running, port:", CONFIG.https.port);
+    console.log(
+      `Web server is listening on https://localhost:${CONFIG.https.port}`
+    );
   });
   https.on("error", err => {
     console.error("HTTPS error:", err.message);
@@ -156,7 +158,7 @@ async function handleRequest(request, callback) {
       await handleStartKurento();
       break;
     case "WEBRTC_RECV_START":
-      responseData = await handleWebRtcRecvStart();
+      responseData = await handleWebrtcRecvStart();
       break;
     case "WEBRTC_SEND_START":
       responseData = await handleWebrtcSendStart();
@@ -193,14 +195,14 @@ async function handleStartMediasoup() {
   const router = await worker.createRouter(CONFIG.mediasoup.router);
   global.mediasoup.router = router;
 
-  // At this point, the computed router.rtpCapabilities includes the
+  // At this point, the computed "router.rtpCapabilities" includes the
   // router codecs enhanced with retransmission and RTCP capabilities,
   // and the list of RTP header extensions supported by mediasoup.
 
   console.log("mediasoup router created");
 
   // Uncomment for debug
-  // console.log("rtpCapabilities: %s", JSON.stringify(router.rtpCapabilities, null, 2));
+  // console.log("router.rtpCapabilities: %s", JSON.stringify(router.rtpCapabilities, null, 2));
 
   return router.rtpCapabilities;
 }
@@ -209,7 +211,7 @@ async function handleStartMediasoup() {
 
 // Creates a mediasoup WebRTC RECV transport
 
-async function handleWebRtcRecvStart() {
+async function handleWebrtcRecvStart() {
   const router = global.mediasoup.router;
 
   const transport = await router.createWebRtcTransport(
@@ -302,6 +304,8 @@ async function handleWebrtcRecvProduce(produceParameters, callback) {
       break;
   }
 
+  global.server.socket.emit("WEBRTC_RECV_PRODUCER_READY", producer.kind);
+
   console.log(
     "mediasoup WebRTC RECV producer created, kind: %s, type: %s, paused: %s",
     producer.kind,
@@ -310,7 +314,7 @@ async function handleWebrtcRecvProduce(produceParameters, callback) {
   );
 
   // Uncomment for debug
-  // console.log("rtpParameters: %s", JSON.stringify(producer.rtpParameters, null, 2));
+  // console.log("producer.rtpParameters: %s", JSON.stringify(producer.rtpParameters, null, 2));
 
   callback(producer.id);
 }
@@ -343,7 +347,7 @@ async function handleWebrtcSendConsume(rtpCapabilities) {
   );
 
   // Uncomment for debug
-  // console.log("rtpParameters: %s", JSON.stringify(consumer.rtpParameters, null, 2));
+  // console.log("consumer.rtpParameters: %s", JSON.stringify(consumer.rtpParameters, null, 2));
 
   const webrtcConsumerOptions = {
     id: consumer.id,
@@ -388,7 +392,7 @@ async function startKurento() {
 
 // ----
 
-// Helper function.
+// Helper function:
 // Get mediasoup PayloadType for the given kind ("video", "audio").
 function getMsPayloadType(kind) {
   let msPayloadType = 0;
@@ -403,6 +407,31 @@ function getMsPayloadType(kind) {
 
 // ----
 
+// Helper function:
+// Get RtcpParameters (https://mediasoup.org/documentation/v3/mediasoup/rtp-parameters-and-capabilities/#RtcpParameters)
+// from an SDP object obtained from `SdpTransform.parse()`.
+// We need this because MediasoupRtpUtils has useful functions like
+// `getRtpEncodings()`, but it lacks something like `getRtcpParameters()`.
+function getRtcpParameters(sdpObject, kind) {
+  const mediaObject = (sdpObject.media || []).find(m => m.type === kind);
+  if (!mediaObject) {
+    throw new Error(`m=${kind} section not found`);
+  }
+
+  // Get CNAME
+  const ssrcCname = (mediaObject.ssrcs || []).find(
+    s => s.attribute && s.attribute === "cname"
+  );
+  const cname = ssrcCname && ssrcCname.value ? ssrcCname.value : null;
+
+  // Get RTCP Reduced Size ("a=rtcp-rsize")
+  const reducedSize = "rtcpRsize" in mediaObject;
+
+  return { cname: cname, reducedSize: reducedSize };
+}
+
+// ----
+
 async function startKurentoRtpConsumer() {
   const msRouter = global.mediasoup.router;
   const kmsPipeline = global.kurento.pipeline;
@@ -411,7 +440,14 @@ async function startKurentoRtpConsumer() {
   // -----------------------
 
   const msTransport = await msRouter.createPlainRtpTransport({
+    // COMEDIA mode must be disabled here: the corresponding Kurento RtpEndpoint
+    // is going to act as receive-only peer, thus it will never send RTP data
+    // to mediasoup, which is a mandatory condition to use COMEDIA
     comedia: false,
+
+    // Kurento RtpEndpoint doesn't support RTP/RTCP multiplexing ("a=rtcp-mux" in SDP)
+    rtcpMux: false,
+
     ...CONFIG.mediasoup.plainRtpTransport
   });
   global.mediasoup.rtp.sendTransport = msTransport;
@@ -433,24 +469,49 @@ async function startKurentoRtpConsumer() {
   // mediasoup RTP consumer (Send media to Kurento)
   // ----------------------------------------------
 
+  const msPayloadType = getMsPayloadType("video");
+
+  // Create RtpCapabilities for the mediasoup RTP consumer. These values must
+  // match those communicated to Kurento through the SDP Offer message.
+  //
+  // RtpCapabilities (https://mediasoup.org/documentation/v3/mediasoup/rtp-parameters-and-capabilities/#RtpCapabilities)
+  const kmsRtpCapabilities = {
+    codecs: [
+      // RtpCodecCapability (https://mediasoup.org/documentation/v3/mediasoup/rtp-parameters-and-capabilities/#RtpCodecCapability)
+      {
+        kind: "video",
+        mimeType: "video/VP8",
+        preferredPayloadType: msPayloadType,
+        clockRate: 90000,
+        parameters: {},
+        rtcpFeedback: [
+          { type: "goog-remb" },
+          { type: "ccm", parameter: "fir" },
+          { type: "nack" },
+          { type: "nack", parameter: "pli" }
+        ]
+      }
+    ]
+  };
+
   const msConsumer = await msTransport.consume({
     producerId: global.mediasoup.webrtc.videoProducer.id,
-    rtpCapabilities: msRouter.rtpCapabilities,
+    rtpCapabilities: kmsRtpCapabilities,
     paused: false
   });
   global.mediasoup.rtp.sendConsumer = msConsumer;
 
   console.log(
-    "mediasoup RTP consumer created, kind: %s, type: %s, paused: %s",
+    "mediasoup RTP SEND consumer created, kind: %s, type: %s, paused: %s, SSRC: %s CNAME: %s",
     msConsumer.kind,
     msConsumer.type,
-    msConsumer.paused
+    msConsumer.paused,
+    msConsumer.rtpParameters.encodings[0].ssrc,
+    msConsumer.rtpParameters.rtcp.cname
   );
 
   // Kurento RtpEndpoint (Receive media from mediasoup)
   // --------------------------------------------------
-
-  const msPayloadType = getMsPayloadType("video");
 
   const msListenIp = msTransport.tuple.localIp;
   const msListenPort = msTransport.tuple.localPort;
@@ -467,22 +528,31 @@ async function startKurentoRtpConsumer() {
     "s=-\r\n" +
     `c=IN IP4 ${msListenIp}\r\n` +
     "t=0 0\r\n" +
-    `m=video ${msListenPort} RTP/AVP ${msPayloadType}\r\n` +
+    `m=video ${msListenPort} RTP/AVPF ${msPayloadType}\r\n` +
     `a=rtcp:${msListenPortRtcp}\r\n` +
-    `a=rtpmap:${msPayloadType} VP8/90000\r\n` +
     "a=sendonly\r\n" +
+    `a=rtpmap:${msPayloadType} VP8/90000\r\n` +
+    `a=rtcp-fb:${msPayloadType} goog-remb\r\n` +
+    `a=rtcp-fb:${msPayloadType} ccm fir\r\n` +
+    `a=rtcp-fb:${msPayloadType} nack\r\n` +
+    `a=rtcp-fb:${msPayloadType} nack pli\r\n` +
     `a=ssrc:${msSsrc} cname:${msCname}\r\n` +
     "";
 
   const kmsEndpoint = await kmsPipeline.create("RtpEndpoint");
   global.kurento.rtp.recvEndpoint = kmsEndpoint;
 
-  console.log("SDP Offer from App to Kurento RTP RECV: %s\n", kmsSdpOffer);
+  console.log("SDP Offer from App to Kurento RTP RECV:\n%s", kmsSdpOffer);
   const kmsSdpAnswer = await kmsEndpoint.processOffer(kmsSdpOffer);
   console.log("SDP Answer from Kurento RTP RECV to App:\n%s", kmsSdpAnswer);
 
-  // WARNING: A real application would need to parse this SDP Answer and adapt
-  // to the parameters given in it, following the SDP Offer/Answer Model.
+  // NOTE: A real application would need to parse this SDP Answer and adapt to
+  // the parameters given in it, following the SDP Offer/Answer Model.
+  // For example, if Kurento didn't support NACK PLI, then it would reply
+  // without that attribute in the SDP Answer, and this app should notice it and
+  // reconfigure accordingly.
+  // Here, we'll just assume that the SDP Answer from Kurento is accepting all
+  // of our medias, formats, and options.
 
   const kmsSdpAnswerObj = SdpTransform.parse(kmsSdpAnswer);
   console.log("kmsSdpAnswerObj: %s", JSON.stringify(kmsSdpAnswerObj, null, 2));
@@ -490,15 +560,16 @@ async function startKurentoRtpConsumer() {
   // Get the Kurento RTP/RTCP listening port(s) from the Kurento SDP Answer
 
   const mediaObj = (kmsSdpAnswerObj.media || []).find(m => m.type === "video");
-  // Not checked: mediaObj might be null if Kurento rejects the media format
+  if (!mediaObj) {
+    throw new Error("m=video section not found");
+  }
+
   const connectionObj = mediaObj.connection || kmsSdpAnswerObj.connection;
-
   let kmsIp = connectionObj.ip;
-
   const rtpPort = mediaObj.port;
-
   let rtcpPort = rtpPort + 1;
-  if (mediaObj.rtcp) {
+  if ("rtcp" in mediaObj) {
+    // If "a=rtcp:<Port>" is found in the SDP Answer
     rtcpPort = mediaObj.rtcp.port;
   }
 
@@ -507,7 +578,7 @@ async function startKurentoRtpConsumer() {
 
   // Check if Kurento IP address is actually a localhost address, and in that
   // case use "127.0.0.1" instead. This is needed to ensure that the source IP
-  // of RTP packets coincides with the IP that is given here to connect().
+  // of RTP packets matches with the IP that is given here to connect().
   // Uses `os.networkInterfaces()` (https://nodejs.org/api/os.html#os_os_networkinterfaces)
   // to search for the Kurento IP address in each of the local interfaces.
   if (
@@ -552,12 +623,15 @@ async function startKurentoRtpProducer() {
   // mediasoup RTP transport
   // -----------------------
 
-  // There is no need to `connect()` this transport.
-  // With COMEDIA enabled, mediasoup waits until Kurento starts sending data,
-  // to infer Kurento's outbound port.
-
   const msTransport = await msRouter.createPlainRtpTransport({
+    // There is no need to `connect()` this transport: with COMEDIA enabled,
+    // mediasoup waits until Kurento starts sending RTP, to detect Kurento's
+    // outbound RTP and RTCP ports.
     comedia: true,
+
+    // Kurento RtpEndpoint doesn't support RTP/RTCP multiplexing ("a=rtcp-mux" in SDP)
+    rtcpMux: false,
+
     ...CONFIG.mediasoup.plainRtpTransport
   });
   global.mediasoup.rtp.recvTransport = msTransport;
@@ -593,21 +667,31 @@ async function startKurentoRtpProducer() {
     "s=-\r\n" +
     `c=IN IP4 ${msListenIp}\r\n` +
     "t=0 0\r\n" +
-    `m=video ${msListenPort} RTP/AVP ${msPayloadType}\r\n` +
+    `m=video ${msListenPort} RTP/AVPF ${msPayloadType}\r\n` +
     `a=rtcp:${msListenPortRtcp}\r\n` +
-    `a=rtpmap:${msPayloadType} VP8/90000\r\n` +
     "a=recvonly\r\n" +
+    `a=rtpmap:${msPayloadType} VP8/90000\r\n` +
+    `a=rtcp-fb:${msPayloadType} goog-remb\r\n` +
+    `a=rtcp-fb:${msPayloadType} ccm fir\r\n` +
+    `a=rtcp-fb:${msPayloadType} nack\r\n` +
+    `a=rtcp-fb:${msPayloadType} nack pli\r\n` +
     "";
 
   const kmsEndpoint = await kmsPipeline.create("RtpEndpoint");
   global.kurento.rtp.sendEndpoint = kmsEndpoint;
+  await kmsEndpoint.setMaxVideoSendBandwidth(2000); // Send max 2 mbps
 
-  console.log("SDP Offer from App to Kurento RTP SEND: %s\n", kmsSdpOffer);
+  console.log("SDP Offer from App to Kurento RTP SEND:\n%s", kmsSdpOffer);
   const kmsSdpAnswer = await kmsEndpoint.processOffer(kmsSdpOffer);
   console.log("SDP Answer from Kurento RTP SEND to App:\n%s", kmsSdpAnswer);
 
-  // WARNING: A real application would need to parse this SDP Answer and adapt
-  // to the parameters given in it, following the SDP Offer/Answer Model.
+  // NOTE: A real application would need to parse this SDP Answer and adapt to
+  // the parameters given in it, following the SDP Offer/Answer Model.
+  // For example, if Kurento didn't support NACK PLI, then it would reply
+  // without that attribute in the SDP Answer, and this app should notice it and
+  // reconfigure accordingly.
+  // Here, we'll just assume that the SDP Answer from Kurento is accepting all
+  // of our medias, formats, and options.
 
   const kmsSdpAnswerObj = SdpTransform.parse(kmsSdpAnswer);
   console.log("kmsSdpAnswerObj: %s", JSON.stringify(kmsSdpAnswerObj, null, 2));
@@ -636,10 +720,14 @@ async function startKurentoRtpProducer() {
     "video",
     msExtendedRtpCapabilities
   );
+
+  // MediasoupOrtc.getSendingRtpParameters() leaves empty "mid", "encodings",
+  // and "rtcp" fields
   kmsRtpSendParameters.encodings = MediasoupRtpUtils.getRtpEncodings({
     sdpObject: kmsSdpAnswerObj,
     kind: "video"
   });
+  kmsRtpSendParameters.rtcp = getRtcpParameters(kmsSdpAnswerObj, "video");
   console.log(
     "kmsRtpSendParameters: %s",
     JSON.stringify(kmsRtpSendParameters, null, 2)
