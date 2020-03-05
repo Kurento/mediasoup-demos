@@ -77,11 +77,7 @@ module.exports = {
 
     // PlainRtpTransportOptions
     plainRtpTransport: {
-      listenIp: { ip: "127.0.0.1", announcedIp: null },
-      comedia: false,
-
-      // FFmpeg does not support RTP/RTCP multiplexing ("rtcp-mux")
-      rtcpMux: false
+      listenIp: { ip: "127.0.0.1", announcedIp: null }
     },
 
     client: {

@@ -310,9 +310,15 @@ async function handleStartRecording(recorder) {
   // Start mediasoup's RTP consumer(s)
 
   if (useAudio) {
-    const rtpTransport = await router.createPlainRtpTransport(
-      CONFIG.mediasoup.plainRtpTransport
-    );
+    const rtpTransport = await router.createPlainRtpTransport({
+      // No RTP will be received from the remote side
+      comedia: false,
+
+      // FFmpeg and GStreamer don't support RTP/RTCP multiplexing ("a=rtcp-mux" in SDP)
+      rtcpMux: false,
+
+      ...CONFIG.mediasoup.plainRtpTransport
+    });
     global.mediasoup.rtp.audioTransport = rtpTransport;
 
     await rtpTransport.connect({
@@ -357,9 +363,15 @@ async function handleStartRecording(recorder) {
   }
 
   if (useVideo) {
-    const rtpTransport = await router.createPlainRtpTransport(
-      CONFIG.mediasoup.plainRtpTransport
-    );
+    const rtpTransport = await router.createPlainRtpTransport({
+      // No RTP will be received from the remote side
+      comedia: false,
+
+      // FFmpeg and GStreamer don't support RTP/RTCP multiplexing ("a=rtcp-mux" in SDP)
+      rtcpMux: false,
+
+      ...CONFIG.mediasoup.plainRtpTransport
+    });
     global.mediasoup.rtp.videoTransport = rtpTransport;
 
     await rtpTransport.connect({
