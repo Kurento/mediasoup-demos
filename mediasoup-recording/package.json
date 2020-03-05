@@ -11,13 +11,6 @@
     "type": "git",
     "url": "https://github.com/Kurento/mediasoup-demos.git"
   },
-  "keywords": [
-    "mediasoup",
-    "webrtc",
-    "rtp",
-    "gstreamer",
-    "ffmpeg"
-  ],
   "author": "Juan Navarro <juan.navarro@gmx.es> (https://github.com/j1elo)",
   "license": "Apache-2.0",
   "bugs": {

@@ -108,7 +108,7 @@ module.exports = {
     recording: {
       ip: "127.0.0.1",
 
-
+      // GStreamer's sdpdemux only supports RTCP = RTP + 1
       audioPort: 5004,
       audioPortRtcp: 5005,
       videoPort: 5006,

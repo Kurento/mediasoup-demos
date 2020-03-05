@@ -222,7 +222,7 @@ async function handleStartMediasoup(vCodecName) {
   console.log("mediasoup router created");
 
   // Uncomment for debug
-  // console.log("rtpCapabilities: %s", JSON.stringify(router.rtpCapabilities, null, 2));
+  // console.log("router.rtpCapabilities: %s", JSON.stringify(router.rtpCapabilities, null, 2));
 
   return router.rtpCapabilities;
 }
@@ -294,7 +294,7 @@ async function handleWebrtcRecvProduce(produceParameters, callback) {
   );
 
   // Uncomment for debug
-  // console.log("rtpParameters: %s", JSON.stringify(producer.rtpParameters, null, 2));
+  // console.log("producer.rtpParameters: %s", JSON.stringify(producer.rtpParameters, null, 2));
 
   callback(producer.id);
 }
