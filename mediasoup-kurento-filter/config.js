@@ -60,8 +60,8 @@ module.exports = {
       minimumAvailableOutgoingBitrate: 300000
     },
 
-    // PlainRtpTransportOptions
-    plainRtpTransport: {
+    // PlainTransportOptions
+    plainTransport: {
       listenIp: { ip: "127.0.0.1", announcedIp: null },
     },
 

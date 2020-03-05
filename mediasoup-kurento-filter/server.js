@@ -444,7 +444,7 @@ async function startKurentoRtpConsumer(enableSrtp) {
     srtpCryptoSuite = "AES_CM_128_HMAC_SHA1_80";
   }
 
-  const msTransport = await msRouter.createPlainRtpTransport({
+  const msTransport = await msRouter.createPlainTransport({
     // COMEDIA mode must be disabled here: the corresponding Kurento RtpEndpoint
     // is going to act as receive-only peer, thus it will never send RTP data
     // to mediasoup, which is a mandatory condition to use COMEDIA
@@ -457,7 +457,7 @@ async function startKurentoRtpConsumer(enableSrtp) {
     enableSrtp: enableSrtp,
     srtpCryptoSuite: srtpCryptoSuite,
 
-    ...CONFIG.mediasoup.plainRtpTransport
+    ...CONFIG.mediasoup.plainTransport
   });
   global.mediasoup.rtp.sendTransport = msTransport;
 
@@ -670,7 +670,7 @@ async function startKurentoRtpProducer(enableSrtp) {
     srtpCryptoSuite = "AES_CM_128_HMAC_SHA1_80";
   }
 
-  const msTransport = await msRouter.createPlainRtpTransport({
+  const msTransport = await msRouter.createPlainTransport({
     // There is no need to `connect()` this transport: with COMEDIA enabled,
     // mediasoup waits until Kurento starts sending RTP, to detect Kurento's
     // outbound RTP and RTCP ports.
@@ -683,7 +683,7 @@ async function startKurentoRtpProducer(enableSrtp) {
     enableSrtp: enableSrtp,
     srtpCryptoSuite: srtpCryptoSuite,
 
-    ...CONFIG.mediasoup.plainRtpTransport
+    ...CONFIG.mediasoup.plainTransport
   });
   global.mediasoup.rtp.recvTransport = msTransport;
 
