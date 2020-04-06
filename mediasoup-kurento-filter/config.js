@@ -11,16 +11,20 @@ module.exports = {
   mediasoup: {
     // WorkerSettings
     worker: {
-      // "debug", "warn", "error", "none"
-      logLevel: "debug",
+      logLevel: "debug", // "debug", "warn", "error", "none"
       logTags: [
+        "bwe",
         "dtls",
         "ice",
         "info",
+        // "rtcp",
         "rtp",
-        "rtcp",
-        "srtp"
-        // "rtx", "bwe", "score", "simulcast", "svc", "sctp",
+        // "rtx",
+        // "score",
+        // "sctp",
+        // "simulcast",
+        "srtp",
+        // "svc"
       ],
       rtcMinPort: 32256,
       rtcMaxPort: 65535
@@ -56,13 +60,12 @@ module.exports = {
       enableUdp: true,
       enableTcp: true,
       preferUdp: true,
-      initialAvailableOutgoingBitrate: 600000,
-      minimumAvailableOutgoingBitrate: 300000
+      initialAvailableOutgoingBitrate: 300000
     },
 
     // PlainTransportOptions
     plainTransport: {
-      listenIp: { ip: "127.0.0.1", announcedIp: null },
+      listenIp: { ip: "127.0.0.1", announcedIp: null }
     },
 
     client: {
@@ -70,7 +73,7 @@ module.exports = {
       videoProducer: {
         // Single video stream (no simulcast)
         // RTCRtpEncodingParameters[]
-        encodings: [{ maxBitrate: 100000 }]
+        encodings: [{ maxBitrate: 2000000 }]
       }
     }
   },
