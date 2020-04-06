@@ -1,5 +1,8 @@
 "use strict";
 
+// Log whole objects instead of giving up after two levels of nesting
+require("util").inspect.defaultOptions.depth = null;
+
 const CONFIG = require("./config");
 const Express = require("express");
 const Fs = require("fs");
@@ -50,6 +53,7 @@ const global = {
 // Logging
 // =======
 
+// Send all logging to both console and WebSocket
 ["log", "info", "warn", "error"].forEach(function (name) {
   const method = console[name];
   console[name] = function (...args) {
@@ -87,7 +91,11 @@ const global = {
     console.error("HTTPS error:", err.message);
   });
   https.on("tlsClientError", (err) => {
-    console.error("TLS error:", err.message);
+    if (err.message.includes("alert number 46")) {
+      // Ignore: this is the client browser rejecting our self-signed certificate
+    } else {
+      console.error("TLS error:", err);
+    }
   });
   https.listen(CONFIG.https.port);
 }
@@ -170,7 +178,7 @@ function h264Enabled() {
 
 /*
  * Creates a mediasoup worker and router.
- * videoCodec: One of "VP8", "H264".
+ * vCodecName: One of "VP8", "H264".
  */
 async function handleStartMediasoup(vCodecName) {
   const worker = await Mediasoup.createWorker(CONFIG.mediasoup.worker);
@@ -221,15 +229,14 @@ async function handleStartMediasoup(vCodecName) {
 
   console.log("mediasoup router created");
 
-  // Uncomment for debug
-  // console.log("router.rtpCapabilities: %s", JSON.stringify(router.rtpCapabilities, null, 2));
+  console.log("mediasoup router RtpCapabilities: %O", router.rtpCapabilities);
 
   return router.rtpCapabilities;
 }
 
 // ----------------------------------------------------------------------------
 
-// Creates a mediasoup WebRTC transport
+// Creates a mediasoup WebRTC RECV transport
 
 async function handleWebrtcRecvStart() {
   const router = global.mediasoup.router;
@@ -249,8 +256,10 @@ async function handleWebrtcRecvStart() {
     sctpParameters: transport.sctpParameters,
   };
 
-  // Uncomment for debug
-  // console.log("webrtcTransportOptions: %s", JSON.stringify(webrtcTransportOptions, null, 2));
+  console.log(
+    "mediasoup WebRTC RECV TransportOptions: %O",
+    webrtcTransportOptions
+  );
 
   return webrtcTransportOptions;
 }
@@ -293,8 +302,10 @@ async function handleWebrtcRecvProduce(produceParameters, callback) {
     producer.paused
   );
 
-  // Uncomment for debug
-  // console.log("producer.rtpParameters: %s", JSON.stringify(producer.rtpParameters, null, 2));
+  console.log(
+    "mediasoup WebRTC RECV producer RtpSendParameters: %O",
+    producer.rtpParameters
+  );
 
   callback(producer.id);
 }

@@ -11,16 +11,20 @@ module.exports = {
   mediasoup: {
     // WorkerSettings
     worker: {
-      // "debug", "warn", "error", "none"
-      logLevel: "debug",
+      logLevel: "debug", // "debug", "warn", "error", "none"
       logTags: [
+        // "bwe",
         "dtls",
         "ice",
         "info",
-        "rtp",
         "rtcp",
+        "rtp",
+        // "rtx",
+        // "score",
+        // "sctp",
+        // "simulcast",
         "srtp",
-        // "rtx", "bwe", "score", "simulcast", "svc", "sctp",
+        // "svc"
       ],
       rtcMinPort: 32256,
       rtcMaxPort: 65535,
@@ -71,8 +75,7 @@ module.exports = {
       enableUdp: true,
       enableTcp: true,
       preferUdp: true,
-      initialAvailableOutgoingBitrate: 600000,
-      minimumAvailableOutgoingBitrate: 300000,
+      initialAvailableOutgoingBitrate: 300000,
     },
 
     // PlainTransportOptions
