@@ -20,8 +20,8 @@
   "dependencies": {
     "browserify": "^16.5.0",
     "express": "^4.17.0",
-    "mediasoup": "~3.2.0",
-    "mediasoup-client": "~3.2.0",
+    "mediasoup": "~3.5.0",
+    "mediasoup-client": "~3.5.0",
     "socket.io": "^2.2.0",
     "socket.io-client": "^2.2.0",
     "socket.io-promise": "^1.1.1"

@@ -1,6 +1,6 @@
 # mediasoup demo - RTP recording
 
-In this example, a browser's webcam media is transmitted to [mediasoup](https://mediasoup.org/) using WebRTC ([WebRtcTransport](https://mediasoup.org/documentation/v3/mediasoup/api/#WebRtcTransport)); it is then served as a plain RTP stream ([PlainRtpTransport](https://mediasoup.org/documentation/v3/mediasoup/api/#PlainRtpTransport)) to be received and recorded by an external process.
+In this example, a browser's webcam media is transmitted to [mediasoup](https://mediasoup.org/) using WebRTC ([WebRtcTransport](https://mediasoup.org/documentation/v3/mediasoup/api/#WebRtcTransport)); it is then served as a plain RTP stream ([PlainTransport](https://mediasoup.org/documentation/v3/mediasoup/api/#PlainTransport)) to be received and recorded by an external process.
 
 **The media is not re-encoded at any moment**. This is an important detail, because you want recording to take as little resources as possible. For that, the FFmpeg and GStreamer commands are carefully written to make sure that the media packets are received via RTP and get stored as-is to the output recording file.
 
