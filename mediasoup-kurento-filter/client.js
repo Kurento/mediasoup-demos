@@ -12,7 +12,7 @@ const SocketPromise = require("socket.io-promise").default;
 
 const global = {
   server: {
-    socket: null
+    socket: null,
   },
 
   mediasoup: {
@@ -26,9 +26,9 @@ const global = {
 
       recvTransport: null,
       audioConsumer: null,
-      videoConsumer: null
-    }
-  }
+      videoConsumer: null,
+    },
+  },
 };
 
 // ----------------------------------------------------------------------------
@@ -46,7 +46,7 @@ const ui = {
 
   // <video>
   localVideo: document.getElementById("uiLocalVideo"),
-  remoteVideo: document.getElementById("uiRemoteVideo")
+  remoteVideo: document.getElementById("uiRemoteVideo"),
 };
 
 ui.startWebRTC.onclick = startWebRTC;
@@ -59,7 +59,7 @@ ui.debug.onclick = () => {
 
 // ----------------------------------------------------------------------------
 
-window.addEventListener("load", function() {
+window.addEventListener("load", function () {
   console.log("Page load, connect WebSocket");
   connectSocket();
 
@@ -73,7 +73,7 @@ window.addEventListener("load", function() {
   }
 });
 
-window.addEventListener("beforeunload", function() {
+window.addEventListener("beforeunload", function () {
   console.log("Page unload, close WebSocket");
   global.server.socket.close();
 });
@@ -87,7 +87,7 @@ function connectSocket() {
 
   const socket = SocketClient(serverUrl, {
     path: CONFIG.https.wsPath,
-    transports: ["websocket"]
+    transports: ["websocket"],
   });
   global.server.socket = socket;
 
@@ -95,16 +95,16 @@ function connectSocket() {
     console.log("WebSocket connected");
   });
 
-  socket.on("error", err => {
+  socket.on("error", (err) => {
     console.error("WebSocket error:", err);
   });
 
-  socket.on("LOG", log => {
+  socket.on("LOG", (log) => {
     ui.console.value += log + "\n";
     ui.console.scrollTop = ui.console.scrollHeight;
   });
 
-  socket.on("WEBRTC_RECV_PRODUCER_READY", kind => {
+  socket.on("WEBRTC_RECV_PRODUCER_READY", (kind) => {
     console.log(`Server producer is ready, kind: ${kind}`);
 
     ui.connectKurento.disabled = false;
@@ -192,7 +192,7 @@ async function startWebrtcSend() {
   });
 
   transport.on("produce", (produceParameters, callback, _errback) => {
-    socket.emit("WEBRTC_RECV_PRODUCE", produceParameters, producerId => {
+    socket.emit("WEBRTC_RECV_PRODUCE", produceParameters, (producerId) => {
       console.log("[server] WebRTC RECV producer created");
       callback({ producerId });
     });
@@ -210,7 +210,7 @@ async function startWebrtcSend() {
   try {
     stream = await navigator.mediaDevices.getUserMedia({
       audio: useAudio,
-      video: useVideo
+      video: useVideo,
     });
   } catch (err) {
     console.error(err);
@@ -231,7 +231,7 @@ async function startWebrtcSend() {
     const videoTrack = stream.getVideoTracks()[0];
     const videoProducer = await transport.produce({
       track: videoTrack,
-      ...CONFIG.mediasoup.client.videoProducer
+      ...CONFIG.mediasoup.client.videoProducer,
     });
     global.mediasoup.webrtc.videoProducer = videoProducer;
   }
@@ -244,7 +244,9 @@ async function connectKurento() {
 
   // Start an (S)RTP transport as required
 
-  const uiTransport = document.querySelector("input[name='uiTransport']:checked").value;
+  const uiTransport = document.querySelector(
+    "input[name='uiTransport']:checked"
+  ).value;
   let enableSrtp = false;
   if (uiTransport.indexOf("srtp") !== -1) {
     enableSrtp = true;
@@ -286,7 +288,7 @@ async function startWebrtcRecv() {
 
   response = await socketRequest({
     type: "WEBRTC_SEND_CONSUME",
-    rtpCapabilities: device.rtpCapabilities
+    rtpCapabilities: device.rtpCapabilities,
   });
   const webrtcConsumerOptions = response.data;
 
