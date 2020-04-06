@@ -12,7 +12,7 @@ const SocketPromise = require("socket.io-promise").default;
 
 const global = {
   server: {
-    socket: null
+    socket: null,
   },
 
   mediasoup: {
@@ -22,14 +22,14 @@ const global = {
     webrtc: {
       transport: null,
       audioProducer: null,
-      videoProducer: null
-    }
+      videoProducer: null,
+    },
   },
 
   recording: {
     waitForAudio: false,
-    waitForVideo: false
-  }
+    waitForVideo: false,
+  },
 };
 
 // ----------------------------------------------------------------------------
@@ -46,7 +46,7 @@ const ui = {
   stopRecording: document.getElementById("uiStopRecording"),
 
   // <video>
-  localVideo: document.getElementById("uiLocalVideo")
+  localVideo: document.getElementById("uiLocalVideo"),
 };
 
 ui.startWebRTC.onclick = startWebRTC;
@@ -55,7 +55,7 @@ ui.stopRecording.onclick = stopRecording;
 
 // ----------------------------------------------------------------------------
 
-window.addEventListener("load", function() {
+window.addEventListener("load", function () {
   console.log("Page load, connect WebSocket");
   connectSocket();
 
@@ -69,7 +69,7 @@ window.addEventListener("load", function() {
   }
 });
 
-window.addEventListener("beforeunload", function() {
+window.addEventListener("beforeunload", function () {
   console.log("Page unload, close WebSocket");
   global.server.socket.close();
 });
@@ -83,7 +83,7 @@ function connectSocket() {
 
   const socket = SocketClient(serverUrl, {
     path: CONFIG.https.wsPath,
-    transports: ["websocket"]
+    transports: ["websocket"],
   });
   global.server.socket = socket;
 
@@ -91,16 +91,16 @@ function connectSocket() {
     console.log("WebSocket connected");
   });
 
-  socket.on("error", err => {
+  socket.on("error", (err) => {
     console.error("WebSocket error:", err);
   });
 
-  socket.on("LOG", log => {
+  socket.on("LOG", (log) => {
     ui.console.value += log + "\n";
     ui.console.scrollTop = ui.console.scrollHeight;
   });
 
-  socket.on("WEBRTC_RECV_PRODUCER_READY", kind => {
+  socket.on("WEBRTC_RECV_PRODUCER_READY", (kind) => {
     console.log(`Server producer is ready, kind: ${kind}`);
     switch (kind) {
       case "audio":
@@ -138,7 +138,7 @@ async function startMediasoup() {
   ).value;
   const response = await socketRequest({
     type: "START_MEDIASOUP",
-    vCodecName: uiVCodecName
+    vCodecName: uiVCodecName,
   });
   const routerRtpCapabilities = response.data;
 
@@ -204,7 +204,7 @@ async function startWebrtcSend() {
   });
 
   transport.on("produce", (produceParameters, callback, _errback) => {
-    socket.emit("WEBRTC_RECV_PRODUCE", produceParameters, producerId => {
+    socket.emit("WEBRTC_RECV_PRODUCE", produceParameters, (producerId) => {
       console.log("[server] WebRTC RECV producer created");
       callback({ producerId });
     });
@@ -232,7 +232,7 @@ async function startWebrtcSend() {
   try {
     stream = await navigator.mediaDevices.getUserMedia({
       audio: useAudio,
-      video: useVideo
+      video: useVideo,
     });
   } catch (err) {
     console.error(err);
@@ -253,7 +253,7 @@ async function startWebrtcSend() {
     const videoTrack = stream.getVideoTracks()[0];
     const videoProducer = await transport.produce({
       track: videoTrack,
-      ...CONFIG.mediasoup.client.videoProducer
+      ...CONFIG.mediasoup.client.videoProducer,
     });
     global.mediasoup.webrtc.videoProducer = videoProducer;
   }

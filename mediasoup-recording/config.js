@@ -5,7 +5,7 @@ module.exports = {
     port: 8080,
     wsPath: "/server",
     wsPingInterval: 25000,
-    wsPingTimeout: 5000
+    wsPingTimeout: 5000,
   },
 
   mediasoup: {
@@ -19,11 +19,11 @@ module.exports = {
         "info",
         "rtp",
         "rtcp",
-        "srtp"
+        "srtp",
         // "rtx", "bwe", "score", "simulcast", "svc", "sctp",
       ],
       rtcMinPort: 32256,
-      rtcMaxPort: 65535
+      rtcMaxPort: 65535,
     },
 
     // RouterOptions
@@ -42,14 +42,14 @@ module.exports = {
           channels: 2,
           parameters: {
             minptime: 10,
-            useinbandfec: 1
-          }
+            useinbandfec: 1,
+          },
         },
         {
           kind: "video",
           mimeType: "video/VP8",
           preferredPayloadType: 96,
-          clockRate: 90000
+          clockRate: 90000,
         },
         {
           kind: "video",
@@ -59,10 +59,10 @@ module.exports = {
           parameters: {
             "level-asymmetry-allowed": 1,
             "packetization-mode": 1,
-            "profile-level-id": "42e01f"
-          }
-        }
-      ]
+            "profile-level-id": "42e01f",
+          },
+        },
+      ],
     },
 
     // WebRtcTransportOptions
@@ -72,7 +72,7 @@ module.exports = {
       enableTcp: true,
       preferUdp: true,
       initialAvailableOutgoingBitrate: 600000,
-      minimumAvailableOutgoingBitrate: 300000
+      minimumAvailableOutgoingBitrate: 300000,
     },
 
     // PlainTransportOptions
@@ -87,21 +87,21 @@ module.exports = {
         // RTCRtpEncodingParameters[]
         encodings: [
           {
-            maxBitrate: 100000
+            maxBitrate: 100000,
             // maxFramerate: 15.0,
             // scaleResolutionDownBy: 1.5,
           },
           {
-            maxBitrate: 300000
+            maxBitrate: 300000,
           },
           {
-            maxBitrate: 900000
-          }
+            maxBitrate: 900000,
+          },
         ],
         codecOptions: {
-          videoGoogleStartBitrate: 1000
-        }
-      }
+          videoGoogleStartBitrate: 1000,
+        },
+      },
     },
 
     // Target IP and port for RTP recording
@@ -112,11 +112,11 @@ module.exports = {
       audioPort: 5004,
       audioPortRtcp: 5005,
       videoPort: 5006,
-      videoPortRtcp: 5007
-    }
+      videoPortRtcp: 5007,
+    },
   },
 
   gstreamer: {
-    logLevel: "4,GST_*:3" // $GST_DEBUG environment variable
-  }
+    logLevel: "4,GST_*:3", // $GST_DEBUG environment variable
+  },
 };

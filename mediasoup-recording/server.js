@@ -19,7 +19,7 @@ const global = {
     expressApp: null,
     https: null,
     socket: null,
-    socketServer: null
+    socketServer: null,
   },
 
   mediasoup: {
@@ -30,7 +30,7 @@ const global = {
     webrtc: {
       recvTransport: null,
       audioProducer: null,
-      videoProducer: null
+      videoProducer: null,
     },
 
     // RTP connection with recording process
@@ -38,11 +38,11 @@ const global = {
       audioTransport: null,
       audioConsumer: null,
       videoTransport: null,
-      videoConsumer: null
-    }
+      videoConsumer: null,
+    },
   },
 
-  recProcess: null
+  recProcess: null,
 };
 
 // ----------------------------------------------------------------------------
@@ -50,9 +50,9 @@ const global = {
 // Logging
 // =======
 
-["log", "info", "warn", "error"].forEach(function(name) {
+["log", "info", "warn", "error"].forEach(function (name) {
   const method = console[name];
-  console[name] = function(...args) {
+  console[name] = function (...args) {
     method(...args);
     if (global.server.socket) {
       global.server.socket.emit("LOG", Util.format(...args));
@@ -72,7 +72,7 @@ const global = {
   const https = Https.createServer(
     {
       cert: Fs.readFileSync(CONFIG.https.cert),
-      key: Fs.readFileSync(CONFIG.https.certKey)
+      key: Fs.readFileSync(CONFIG.https.certKey),
     },
     expressApp
   );
@@ -83,10 +83,10 @@ const global = {
       `Web server is listening on https://localhost:${CONFIG.https.port}`
     );
   });
-  https.on("error", err => {
+  https.on("error", (err) => {
     console.error("HTTPS error:", err.message);
   });
-  https.on("tlsClientError", err => {
+  https.on("tlsClientError", (err) => {
     console.error("TLS error:", err.message);
   });
   https.listen(CONFIG.https.port);
@@ -102,11 +102,11 @@ const global = {
     serveClient: false,
     pingTimeout: CONFIG.https.wsPingTimeout,
     pingInterval: CONFIG.https.wsPingInterval,
-    transports: ["websocket"]
+    transports: ["websocket"],
   });
   global.server.socketServer = socketServer;
 
-  socketServer.on("connect", socket => {
+  socketServer.on("connect", (socket) => {
     console.log(
       "WebSocket server connected, port: %s",
       socket.request.connection.remotePort
@@ -161,7 +161,7 @@ function videoEnabled() {
 
 function h264Enabled() {
   const codec = global.mediasoup.router.rtpCapabilities.codecs.find(
-    c => c.mimeType === "video/H264"
+    (c) => c.mimeType === "video/H264"
   );
   return codec !== undefined;
 }
@@ -189,11 +189,11 @@ async function handleStartMediasoup(vCodecName) {
   // Build a RouterOptions based on 'CONFIG.mediasoup.router' and the
   // requested 'vCodecName'
   const routerOptions = {
-    mediaCodecs: []
+    mediaCodecs: [],
   };
 
   const audioCodec = CONFIG.mediasoup.router.mediaCodecs.find(
-    c => c.mimeType === "audio/opus"
+    (c) => c.mimeType === "audio/opus"
   );
   if (!audioCodec) {
     console.error("Undefined codec mime type: audio/opus -- Check config.js");
@@ -202,7 +202,7 @@ async function handleStartMediasoup(vCodecName) {
   routerOptions.mediaCodecs.push(audioCodec);
 
   const videoCodec = CONFIG.mediasoup.router.mediaCodecs.find(
-    c => c.mimeType === `video/${vCodecName}`
+    (c) => c.mimeType === `video/${vCodecName}`
   );
   if (!videoCodec) {
     console.error(
@@ -246,7 +246,7 @@ async function handleWebrtcRecvStart() {
     iceParameters: transport.iceParameters,
     iceCandidates: transport.iceCandidates,
     dtlsParameters: transport.dtlsParameters,
-    sctpParameters: transport.sctpParameters
+    sctpParameters: transport.sctpParameters,
   };
 
   // Uncomment for debug
@@ -324,7 +324,7 @@ async function handleStartRecording(recorder) {
     await rtpTransport.connect({
       ip: CONFIG.mediasoup.recording.ip,
       port: CONFIG.mediasoup.recording.audioPort,
-      rtcpPort: CONFIG.mediasoup.recording.audioPortRtcp
+      rtcpPort: CONFIG.mediasoup.recording.audioPortRtcp,
     });
 
     console.log(
@@ -348,7 +348,7 @@ async function handleStartRecording(recorder) {
     const rtpConsumer = await rtpTransport.consume({
       producerId: global.mediasoup.webrtc.audioProducer.id,
       rtpCapabilities: router.rtpCapabilities, // Assume the recorder supports same formats as mediasoup's router
-      paused: true
+      paused: true,
     });
     global.mediasoup.rtp.audioConsumer = rtpConsumer;
 
@@ -377,7 +377,7 @@ async function handleStartRecording(recorder) {
     await rtpTransport.connect({
       ip: CONFIG.mediasoup.recording.ip,
       port: CONFIG.mediasoup.recording.videoPort,
-      rtcpPort: CONFIG.mediasoup.recording.videoPortRtcp
+      rtcpPort: CONFIG.mediasoup.recording.videoPortRtcp,
     });
 
     console.log(
@@ -401,7 +401,7 @@ async function handleStartRecording(recorder) {
     const rtpConsumer = await rtpTransport.consume({
       producerId: global.mediasoup.webrtc.videoProducer.id,
       rtpCapabilities: router.rtpCapabilities, // Assume the recorder supports same formats as mediasoup's router
-      paused: true
+      paused: true,
     });
     global.mediasoup.rtp.videoConsumer = rtpConsumer;
 
@@ -543,7 +543,7 @@ function startRecordingFfmpeg() {
     `-i ${cmdInputPath}`,
     cmdCodec,
     cmdFormat,
-    `-y ${cmdOutputPath}`
+    `-y ${cmdOutputPath}`,
   ]
     .join(" ")
     .trim();
@@ -553,7 +553,7 @@ function startRecordingFfmpeg() {
   let recProcess = Process.spawn(cmdProgram, cmdArgStr.split(/\s+/));
   global.recProcess = recProcess;
 
-  recProcess.on("error", err => {
+  recProcess.on("error", (err) => {
     console.error("Recording process error:", err);
   });
 
@@ -573,12 +573,12 @@ function startRecordingFfmpeg() {
   });
 
   // FFmpeg writes its logs to stderr
-  recProcess.stderr.on("data", chunk => {
+  recProcess.stderr.on("data", (chunk) => {
     chunk
       .toString()
       .split(/\r?\n/g)
       .filter(Boolean) // Filter out empty strings
-      .forEach(line => {
+      .forEach((line) => {
         console.log(line);
         if (line.startsWith("ffmpeg version")) {
           setTimeout(() => {
@@ -670,7 +670,7 @@ function startRecordingGstreamer() {
   // Run process
   const cmdEnv = {
     GST_DEBUG: CONFIG.gstreamer.logLevel,
-    ...process.env // This allows overriding $GST_DEBUG from the shell
+    ...process.env, // This allows overriding $GST_DEBUG from the shell
   };
   const cmdProgram = "gst-launch-1.0"; // Found through $PATH
   const cmdArgStr = [
@@ -680,7 +680,7 @@ function startRecordingGstreamer() {
     `${cmdMux} name=mux`,
     `! filesink location=${cmdOutputPath}`,
     cmdAudioBranch,
-    cmdVideoBranch
+    cmdVideoBranch,
   ]
     .join(" ")
     .trim();
@@ -690,11 +690,11 @@ function startRecordingGstreamer() {
   );
 
   let recProcess = Process.spawn(cmdProgram, cmdArgStr.split(/\s+/), {
-    env: cmdEnv
+    env: cmdEnv,
   });
   global.recProcess = recProcess;
 
-  recProcess.on("error", err => {
+  recProcess.on("error", (err) => {
     console.error("Recording process error:", err);
   });
 
@@ -714,12 +714,12 @@ function startRecordingGstreamer() {
   });
 
   // GStreamer writes some initial logs to stdout
-  recProcess.stdout.on("data", chunk => {
+  recProcess.stdout.on("data", (chunk) => {
     chunk
       .toString()
       .split(/\r?\n/g)
       .filter(Boolean) // Filter out empty strings
-      .forEach(line => {
+      .forEach((line) => {
         console.log(line);
         if (line.startsWith("Setting pipeline to PLAYING")) {
           setTimeout(() => {
@@ -730,12 +730,12 @@ function startRecordingGstreamer() {
   });
 
   // GStreamer writes its progress logs to stderr
-  recProcess.stderr.on("data", chunk => {
+  recProcess.stderr.on("data", (chunk) => {
     chunk
       .toString()
       .split(/\r?\n/g)
       .filter(Boolean) // Filter out empty strings
-      .forEach(line => {
+      .forEach((line) => {
         console.log(line);
       });
   });
@@ -754,8 +754,8 @@ async function startRecordingExternal() {
 
   // Countdown to let the user start the external process
   const timeout = 10;
-  const sleep = ms => {
-    return new Promise(resolve => setTimeout(resolve, ms));
+  const sleep = (ms) => {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   };
   for (let time = timeout; time > 0; time--) {
     console.log(`Recording starts in ${time} seconds...`);
