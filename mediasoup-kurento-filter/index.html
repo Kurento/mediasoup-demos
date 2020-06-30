@@ -101,6 +101,13 @@
       ></textarea>
     </div>
 
+    <script>
+      // This enables debug mode in the mediasoup-client library.
+      window.localStorage.setItem(
+        "debug",
+        "mediasoup-client:* mediasoup-client:WARN* mediasoup-client:ERROR*"
+      );
+    </script>
     <script src="https://webrtchacks.github.io/adapter/adapter-latest.js"></script>
     <script src="client-bundle.js"></script>
   </body>
