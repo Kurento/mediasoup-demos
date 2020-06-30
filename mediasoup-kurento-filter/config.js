@@ -50,6 +50,12 @@ module.exports = {
           mimeType: "video/VP8",
           preferredPayloadType: 96,
           clockRate: 90000,
+          rtcpFeedback: [
+            { type: "goog-remb" },
+            { type: "ccm", parameter: "fir" },
+            { type: "nack" },
+            { type: "nack", parameter: "pli" },
+          ],
         },
       ],
     },

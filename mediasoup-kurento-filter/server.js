@@ -580,15 +580,15 @@ async function startKurentoRtpConsumer(enableSrtp) {
       {
         kind: "video",
         mimeType: "video/VP8",
-        clockRate: 90000,
-        rtcpFeedback: [
-          { type: "nack", parameter: "" },
-          { type: "nack", parameter: "pli" },
-          { type: "ccm", parameter: "fir" },
-          { type: "goog-remb", parameter: "" },
-        ],
-        parameters: {},
         preferredPayloadType: msPayloadType,
+        clockRate: 90000,
+        parameters: {},
+        rtcpFeedback: [
+          { type: "goog-remb" },
+          { type: "ccm", parameter: "fir" },
+          { type: "nack" },
+          { type: "nack", parameter: "pli" },
+        ],
       },
     ],
     headerExtensions: [
