@@ -176,7 +176,7 @@ async function startWebrtcSend() {
 
   let transport;
   try {
-    transport = await device.createSendTransport(webrtcTransportOptions);
+    transport = device.createSendTransport(webrtcTransportOptions);
   } catch (err) {
     console.error(err);
     return;
@@ -185,12 +185,14 @@ async function startWebrtcSend() {
 
   console.log("[client] WebRTC SEND transport created");
 
+  // "connect" is emitted upon the first call to transport.produce()
   transport.on("connect", ({ dtlsParameters }, callback, _errback) => {
     // Signal local DTLS parameters to the server side transport
     socket.emit("WEBRTC_RECV_CONNECT", dtlsParameters);
     callback();
   });
 
+  // "produce" is emitted upon each call to transport.produce()
   transport.on("produce", (produceParameters, callback, _errback) => {
     socket.emit("WEBRTC_RECV_PRODUCE", produceParameters, (producerId) => {
       console.log("[server] WebRTC RECV producer created");
@@ -272,11 +274,18 @@ async function startWebrtcRecv() {
 
   console.log("[server] WebRTC SEND transport created");
 
-  const transport = await device.createRecvTransport(webrtcTransportOptions);
+  let transport;
+  try {
+    transport = device.createRecvTransport(webrtcTransportOptions);
+  } catch (err) {
+    console.error(err);
+    return;
+  }
   global.mediasoup.webrtc.recvTransport = transport;
 
   console.log("[client] WebRTC RECV transport created");
 
+  // "connect" is emitted upon the first call to transport.consume()
   transport.on("connect", ({ dtlsParameters }, callback, _errback) => {
     // Signal local DTLS parameters to the server side transport
     socket.emit("WEBRTC_SEND_CONNECT", dtlsParameters);

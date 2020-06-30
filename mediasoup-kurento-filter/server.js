@@ -204,7 +204,13 @@ async function handleStartMediasoup() {
 
   console.log("mediasoup worker created [pid:%d]", worker.pid);
 
-  const router = await worker.createRouter(CONFIG.mediasoup.router);
+  let router;
+  try {
+    router = await worker.createRouter(CONFIG.mediasoup.router);
+  } catch (err) {
+    console.error("BUG:", err);
+    process.exit(1);
+  }
   global.mediasoup.router = router;
 
   // At this point, the computed "router.rtpCapabilities" includes the
@@ -596,6 +602,13 @@ async function startKurentoRtpConsumer(enableSrtp) {
     ],
   };
 
+  try {
+    MediasoupOrtc.validateRtpCapabilities(kmsRtpCapabilities);
+  } catch (err) {
+    console.error("BUG:", err);
+    process.exit(1);
+  }
+
   console.log("Kurento RTP RECV RtpCapabilities: %O", kmsRtpCapabilities);
 
   const msConsumer = await msTransport.consume({
@@ -911,6 +924,13 @@ async function startKurentoRtpProducer(enableSrtp) {
     sdpObject: kmsSdpAnswerObj,
   });
 
+  try {
+    MediasoupOrtc.validateRtpCapabilities(kmsRtpCapabilities);
+  } catch (err) {
+    console.error("BUG:", err);
+    process.exit(1);
+  }
+
   console.log("Kurento RTP SEND RtpCapabilities: %O", kmsRtpCapabilities);
 
   const msExtendedRtpCapabilities = MediasoupOrtc.getExtendedRtpCapabilities(
@@ -940,11 +960,17 @@ async function startKurentoRtpProducer(enableSrtp) {
   // mediasoup RTP producer (receive media from Kurento)
   // ---------------------------------------------------
 
-  const msProducer = await msTransport.produce({
-    kind: "video",
-    rtpParameters: kmsRtpSendParameters,
-    paused: false,
-  });
+  let msProducer;
+  try {
+    msProducer = await msTransport.produce({
+      kind: "video",
+      rtpParameters: kmsRtpSendParameters,
+      paused: false,
+    });
+  } catch (err) {
+    console.error("BUG:", err);
+    process.exit(1);
+  }
   global.mediasoup.rtp.recvProducer = msProducer;
 
   console.log(

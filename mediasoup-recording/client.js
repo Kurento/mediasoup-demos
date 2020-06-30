@@ -188,7 +188,7 @@ async function startWebrtcSend() {
 
   let transport;
   try {
-    transport = await device.createSendTransport(webrtcTransportOptions);
+    transport = device.createSendTransport(webrtcTransportOptions);
   } catch (err) {
     console.error(err);
     return;
