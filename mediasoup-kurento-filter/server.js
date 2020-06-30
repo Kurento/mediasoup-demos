@@ -943,17 +943,24 @@ async function startKurentoRtpProducer(enableSrtp) {
     msExtendedRtpCapabilities
   );
 
-  // MediasoupOrtc.getSendingRtpParameters() leaves empty "mid", "encodings",
-  // and "rtcp" fields, so we have to fill those
   const kmsRtpSendParameters = MediasoupOrtc.getSendingRtpParameters(
     "video",
     msExtendedRtpCapabilities
   );
-  kmsRtpSendParameters.encodings = MediasoupRtpUtils.getRtpEncodings({
-    sdpObject: kmsSdpAnswerObj,
-    kind: "video",
-  });
-  kmsRtpSendParameters.rtcp = getRtcpParameters(kmsSdpAnswerObj, "video");
+
+  // `getSendingRtpParameters()` leaves empty "mid", "encodings", and "rtcp"
+  // fields, so we have to fill those.
+  {
+    // TODO: "mid"
+    kmsRtpSendParameters.mid = undefined;
+
+    kmsRtpSendParameters.encodings = MediasoupRtpUtils.getRtpEncodings({
+      sdpObject: kmsSdpAnswerObj,
+      kind: "video",
+    });
+
+    kmsRtpSendParameters.rtcp = getRtcpParameters(kmsSdpAnswerObj, "video");
+  }
 
   console.log("Kurento RTP SEND RtpSendParameters: %O", kmsRtpSendParameters);
 
