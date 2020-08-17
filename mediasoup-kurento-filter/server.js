@@ -77,7 +77,7 @@ const global = {
 // =======
 
 // Send all logging to both console and WebSocket
-["log", "info", "warn", "error"].forEach(function (name) {
+for (const name of ["log", "info", "warn", "error"]) {
   const method = console[name];
   console[name] = function (...args) {
     method(...args);
@@ -85,7 +85,7 @@ const global = {
       global.server.socket.emit("LOG", Util.format(...args));
     }
   };
-});
+}
 
 // ----------------------------------------------------------------------------
 
@@ -219,7 +219,7 @@ async function handleStartMediasoup() {
 
   console.log("mediasoup router created");
 
-  console.log("mediasoup router RtpCapabilities: %O", router.rtpCapabilities);
+  console.log("mediasoup router RtpCapabilities:\n%O", router.rtpCapabilities);
 
   return router.rtpCapabilities;
 }
@@ -247,7 +247,7 @@ async function handleWebrtcRecvStart() {
   };
 
   console.log(
-    "mediasoup WebRTC RECV TransportOptions: %O",
+    "mediasoup WebRTC RECV TransportOptions:\n%O",
     webrtcTransportOptions
   );
 
@@ -301,7 +301,7 @@ async function handleWebrtcSendStart() {
   };
 
   console.log(
-    "mediasoup WebRTC SEND TransportOptions: %O",
+    "mediasoup WebRTC SEND TransportOptions:\n%O",
     webrtcTransportOptions
   );
 
@@ -359,7 +359,7 @@ async function handleWebrtcRecvProduce(produceParameters, callback) {
   );
 
   console.log(
-    "mediasoup WebRTC RECV producer RtpSendParameters: %O",
+    "mediasoup WebRTC RECV producer RtpParameters:\n%O",
     producer.rtpParameters
   );
 
@@ -394,7 +394,7 @@ async function handleWebrtcSendConsume(rtpCapabilities) {
   );
 
   console.log(
-    "mediasoup WebRTC SEND consumer RtpReceiveParameters: %O",
+    "mediasoup WebRTC SEND consumer RtpParameters:\n%O",
     consumer.rtpParameters
   );
 
@@ -609,7 +609,7 @@ async function startKurentoRtpConsumer(enableSrtp) {
     process.exit(1);
   }
 
-  console.log("Kurento RTP RECV RtpCapabilities: %O", kmsRtpCapabilities);
+  console.log("Kurento RTP RECV RtpCapabilities:\n%O", kmsRtpCapabilities);
 
   const msConsumer = await msTransport.consume({
     producerId: global.mediasoup.webrtc.videoProducer.id,
@@ -628,7 +628,7 @@ async function startKurentoRtpConsumer(enableSrtp) {
   );
 
   console.log(
-    "mediasoup RTP SEND consumer RtpReceiveParameters: %O",
+    "mediasoup RTP SEND consumer RtpParameters:\n%O",
     msConsumer.rtpParameters
   );
 
@@ -705,7 +705,7 @@ async function startKurentoRtpConsumer(enableSrtp) {
 
   const kmsSdpAnswerObj = SdpTransform.parse(kmsSdpAnswer);
 
-  console.log("Kurento RTP RECV SDP: %O", kmsSdpAnswerObj);
+  console.log("Kurento RTP RECV SDP:\n%O", kmsSdpAnswerObj);
 
   // Get the Kurento RTP/RTCP listening port(s) from the Kurento SDP Answer
 
@@ -915,9 +915,9 @@ async function startKurentoRtpProducer(enableSrtp) {
 
   const kmsSdpAnswerObj = SdpTransform.parse(kmsSdpAnswer);
 
-  console.log("Kurento RTP SEND SDP: %O", kmsSdpAnswerObj);
+  console.log("Kurento RTP SEND SDP:\n%O", kmsSdpAnswerObj);
 
-  // Build an RtpSendParameters from the Kurento SDP Answer,
+  // Build an RtpParameters from the Kurento SDP Answer,
   // this gives us the Kurento RTP stream's SSRC, payload type, etc.
 
   const kmsRtpCapabilities = MediasoupSdpUtils.extractRtpCapabilities({
@@ -931,7 +931,7 @@ async function startKurentoRtpProducer(enableSrtp) {
     process.exit(1);
   }
 
-  console.log("Kurento RTP SEND RtpCapabilities: %O", kmsRtpCapabilities);
+  console.log("Kurento RTP SEND RtpCapabilities:\n%O", kmsRtpCapabilities);
 
   const msExtendedRtpCapabilities = MediasoupOrtc.getExtendedRtpCapabilities(
     global.mediasoup.router.rtpCapabilities,
@@ -939,7 +939,7 @@ async function startKurentoRtpProducer(enableSrtp) {
   );
 
   console.log(
-    "Kurento RTP SEND ExtendedRtpCapabilities: %O",
+    "Kurento RTP SEND ExtendedRtpCapabilities:\n%O",
     msExtendedRtpCapabilities
   );
 
@@ -962,7 +962,7 @@ async function startKurentoRtpProducer(enableSrtp) {
     kmsRtpSendParameters.rtcp = getRtcpParameters(kmsSdpAnswerObj, "video");
   }
 
-  console.log("Kurento RTP SEND RtpSendParameters: %O", kmsRtpSendParameters);
+  console.log("Kurento RTP SEND RtpParameters:\n%O", kmsRtpSendParameters);
 
   // mediasoup RTP producer (receive media from Kurento)
   // ---------------------------------------------------
@@ -988,7 +988,7 @@ async function startKurentoRtpProducer(enableSrtp) {
   );
 
   console.log(
-    "mediasoup RTP RECV producer RtpSendParameters: %O",
+    "mediasoup RTP RECV producer RtpParameters:\n%O",
     msProducer.rtpParameters
   );
 

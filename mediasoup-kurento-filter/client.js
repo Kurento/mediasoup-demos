@@ -156,7 +156,7 @@ async function startMediasoup() {
   );
 
   // Uncomment for debug
-  // console.log("rtpCapabilities: %s", JSON.stringify(device.rtpCapabilities, null, 2));
+  // console.log("rtpCapabilities:\n%O", device.rtpCapabilities);
 }
 
 // ----

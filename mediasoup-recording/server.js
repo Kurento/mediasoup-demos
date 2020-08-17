@@ -229,7 +229,7 @@ async function handleStartMediasoup(vCodecName) {
 
   console.log("mediasoup router created");
 
-  console.log("mediasoup router RtpCapabilities: %O", router.rtpCapabilities);
+  console.log("mediasoup router RtpCapabilities:\n%O", router.rtpCapabilities);
 
   return router.rtpCapabilities;
 }
@@ -257,7 +257,7 @@ async function handleWebrtcRecvStart() {
   };
 
   console.log(
-    "mediasoup WebRTC RECV TransportOptions: %O",
+    "mediasoup WebRTC RECV TransportOptions:\n%O",
     webrtcTransportOptions
   );
 
@@ -303,7 +303,7 @@ async function handleWebrtcRecvProduce(produceParameters, callback) {
   );
 
   console.log(
-    "mediasoup WebRTC RECV producer RtpSendParameters: %O",
+    "mediasoup WebRTC RECV producer RtpParameters:\n%O",
     producer.rtpParameters
   );
 
