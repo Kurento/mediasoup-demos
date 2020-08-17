@@ -934,8 +934,8 @@ async function startKurentoRtpProducer(enableSrtp) {
   console.log("Kurento RTP SEND RtpCapabilities: %O", kmsRtpCapabilities);
 
   const msExtendedRtpCapabilities = MediasoupOrtc.getExtendedRtpCapabilities(
-    kmsRtpCapabilities,
-    global.mediasoup.router.rtpCapabilities
+    global.mediasoup.router.rtpCapabilities,
+    kmsRtpCapabilities
   );
 
   console.log(
