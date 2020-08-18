@@ -21,11 +21,11 @@ This demo shows how to integrate mediasoup with Kurento Media Server, so the lat
 
 ### Configuring the announced IP
 
-If you run KMS from a remote host (including if you run KMS from within a Docker container that doesn't use [Host Networking](https://docs.docker.com/network/host/)), you need to edit *config.js* and change the value of `mediasoup.plainTransport.listenIp.announcedIp` to the IP address where KMS should send data to mediasoup.
+If you run KMS from a remote host (including if you run KMS from a Docker container that doesn't use [Host Networking](https://docs.docker.com/network/host/)), you need to edit *config.js* and change the value of `mediasoup.plainTransport.listenIp.announcedIp` to the IP address where KMS can reach and send data to mediasoup.
 
-For example, if KMS runs from within a Docker container -without host networking-, mediasoup will be reachable from KMS at the IP address `172.17.0.1` so that's the value you should configure into the `announcedIp`.
+For example, if KMS runs from Docker for Linux -without host networking-, mediasoup will be reachable from within the container at the IP address `172.17.0.1` so that's the value you should configure into the `announcedIp`. However, if using Docker for Mac or Windows, containers cannot reach the host directly with a default IP; instead, the official recommendation is to resolve the special DNS name `host.docker.internal` *from inside the container itself*, to obtain the actual host IP address where mediasoup can be reached. For more information about this: [Networking features in Docker Desktop for Mac](https://docs.docker.com/docker-for-mac/networking/).
 
-Besides this, any intermediate NAT should have its UDP ports open so KMS can receive data from mediasoup.
+Besides all this, any intermediate NAT should have its UDP ports open so KMS can receive data from mediasoup.
 
 
 

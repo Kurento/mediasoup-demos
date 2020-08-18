@@ -71,11 +71,19 @@ module.exports = {
 
     // PlainTransportOptions
     plainTransport: {
-      // For KMS running in localhost or with Docker "host network":
+      // If running KMS from localhost or with Docker "host network", use the
+      // localhost IP address.
       listenIp: { ip: "0.0.0.0", announcedIp: "127.0.0.1" },
 
-      // For KMS running remotely or behind the Docker network gateway:
-      // listenIp: { ip: "0.0.0.0", announcedIp: "172.17.0.1" },
+      // If running KMS from a non-"host network" Linux Docker container, use
+      // the Docker network gateway IP, which by default is "172.17.0.1".
+      //listenIp: { ip: "0.0.0.0", announcedIp: "172.17.0.1" },
+
+      // If running KMS from Docker for Mac or Windows, use the IP address that
+      // results from resolving the hostname "host.docker.internal" from
+      // *inside* the Docker container.
+      // Also, "kurento.usingDockerForLinux" must be false.
+      //listenIp: { ip: "0.0.0.0", announcedIp: "192.168.65.2" },
     },
 
     client: {
@@ -92,6 +100,9 @@ module.exports = {
     ip: "127.0.0.1",
     port: 8888,
     wsPath: "/kurento",
+
+    // Set to false if running KMS from Docker for Mac or Windows.
+    usingDockerForLinux: true,
   },
 
   srtp: {

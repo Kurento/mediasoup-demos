@@ -735,7 +735,22 @@ async function startKurentoRtpConsumer(enableSrtp) {
   }
 
   const connectionObj = mediaObj.connection || kmsSdpAnswerObj.connection;
-  let kmsIp = connectionObj.ip;
+
+  let kmsIp;
+  if (CONFIG.kurento.usingDockerForLinux) {
+    // On Linux, the host can reach private Docker container's IP address
+    // directly, so the value from the SDP connection can be used.
+    kmsIp = connectionObj.ip;
+  }
+  else {
+    // When running KMS from Docker for Mac or Windows, the host doesn't have
+    // direct access to container's private IP address (because there is
+    // actually a virtual machine in between). In this situation, ignore the SDP
+    // connection's address and instead use the IP address given by the user
+    // config.
+    kmsIp = CONFIG.kurento.ip;
+  }
+
   const kmsPortRtp = mediaObj.port;
   let kmsPortRtcp = kmsPortRtp + 1;
   if ("rtcp" in mediaObj) {
