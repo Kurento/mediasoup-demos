@@ -18,17 +18,17 @@
   },
   "homepage": "https://github.com/Kurento/mediasoup-demos",
   "dependencies": {
-    "browserify": "^16.5.0",
-    "express": "^4.17.0",
-    "mediasoup": "~3.5.0",
-    "mediasoup-client": "~3.5.0",
-    "socket.io": "^2.2.0",
-    "socket.io-client": "^2.2.0",
-    "socket.io-promise": "^1.1.1"
+    "browserify": "^16.0.0",
+    "express": "^4.0.0",
     "ffmpeg-static": "^4.0.0",
+    "mediasoup": "~3.6.0",
+    "mediasoup-client": "~3.6.0",
+    "socket.io": "^2.0.0",
+    "socket.io-client": "^2.0.0",
+    "socket.io-promise": "^1.0.0"
   },
   "devDependencies": {
-    "eslint": "^6.2.0",
+    "eslint": "^6.0.0",
     "prettier": "~2.0.0"
   }
 }
