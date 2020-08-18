@@ -82,7 +82,6 @@ module.exports = {
       // If running KMS from Docker for Mac or Windows, use the IP address that
       // results from resolving the hostname "host.docker.internal" from
       // *inside* the Docker container.
-      // Also, "kurento.usingDockerForLinux" must be false.
       //listenIp: { ip: "0.0.0.0", announcedIp: "192.168.65.2" },
     },
 
@@ -100,9 +99,6 @@ module.exports = {
     ip: "127.0.0.1",
     port: 8888,
     wsPath: "/kurento",
-
-    // Set to false if running KMS from Docker for Mac or Windows.
-    usingDockerForLinux: true,
   },
 
   srtp: {
