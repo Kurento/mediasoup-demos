@@ -7,8 +7,8 @@ const SocketPromise = require("socket.io-promise").default;
 
 // ----------------------------------------------------------------------------
 
-// Application state
-// =================
+// Global state
+// ============
 
 const global = {
   server: {
@@ -38,6 +38,7 @@ const global = {
 // ================
 
 const ui = {
+  settings: document.getElementById("uiSettings"),
   console: document.getElementById("uiConsole"),
 
   // <button>
@@ -56,7 +57,7 @@ ui.stopRecording.onclick = stopRecording;
 // ----------------------------------------------------------------------------
 
 window.addEventListener("load", function () {
-  console.log("Page load, connect WebSocket");
+  console.log("Page loaded, connect WebSocket");
   connectSocket();
 
   if ("adapter" in window) {
@@ -70,7 +71,7 @@ window.addEventListener("load", function () {
 });
 
 window.addEventListener("beforeunload", function () {
-  console.log("Page unload, close WebSocket");
+  console.log("Page unloading, close WebSocket");
   global.server.socket.close();
 });
 
@@ -111,9 +112,11 @@ function connectSocket() {
         break;
     }
 
+    // Update UI
     if (!global.recording.waitForAudio && !global.recording.waitForVideo) {
+      ui.settings.disabled = true;
+      ui.startWebRTC.disabled = true;
       ui.startRecording.disabled = false;
-      ui.stopRecording.disabled = false;
     }
   });
 }
@@ -197,12 +200,14 @@ async function startWebrtcSend() {
 
   console.log("[client] WebRTC SEND transport created");
 
+  // "connect" is emitted upon the first call to transport.produce()
   transport.on("connect", ({ dtlsParameters }, callback, _errback) => {
     // Signal local DTLS parameters to the server side transport
     socket.emit("WEBRTC_RECV_CONNECT", dtlsParameters);
     callback();
   });
 
+  // "produce" is emitted upon each call to transport.produce()
   transport.on("produce", (produceParameters, callback, _errback) => {
     socket.emit("WEBRTC_RECV_PRODUCE", produceParameters, (producerId) => {
       console.log("[server] WebRTC RECV producer created");
@@ -265,12 +270,19 @@ function startRecording() {
   const uiRecorder = document.querySelector("input[name='uiRecorder']:checked")
     .value;
   global.server.socket.emit("START_RECORDING", uiRecorder);
+
+  // Update UI
+  ui.startRecording.disabled = true;
+  ui.stopRecording.disabled = false;
 }
 
 // ----------------------------------------------------------------------------
 
 function stopRecording() {
   global.server.socket.emit("STOP_RECORDING");
+
+  // Update UI
+  ui.stopRecording.disabled = true;
 }
 
 // ----------------------------------------------------------------------------

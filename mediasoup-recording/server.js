@@ -55,7 +55,7 @@ const global = {
 // =======
 
 // Send all logging to both console and WebSocket
-["log", "info", "warn", "error"].forEach(function (name) {
+for (const name of ["log", "info", "warn", "error"]) {
   const method = console[name];
   console[name] = function (...args) {
     method(...args);
@@ -63,7 +63,7 @@ const global = {
       global.server.socket.emit("LOG", Util.format(...args));
     }
   };
-});
+}
 
 // ----------------------------------------------------------------------------
 
@@ -221,7 +221,13 @@ async function handleStartMediasoup(vCodecName) {
   }
   routerOptions.mediaCodecs.push(videoCodec);
 
-  const router = await worker.createRouter(routerOptions);
+  let router;
+  try {
+    router = await worker.createRouter(routerOptions);
+  } catch (err) {
+    console.error("BUG:", err);
+    process.exit(1);
+  }
   global.mediasoup.router = router;
 
   // At this point, the computed "router.rtpCapabilities" includes the

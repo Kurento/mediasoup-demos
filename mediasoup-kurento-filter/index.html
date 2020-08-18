@@ -36,9 +36,6 @@
         target="_blank"
         >GStreamerFilter</a
       >), and the result will be sent back to <i>mediasoup</i> for presentation.
-    </p>
-
-    <p>
       Check out the
       <a href="diagram.png" target="_blank">architecture diagram</a> of this
       demo.
@@ -50,17 +47,20 @@
       instructions.
     </p>
 
-    <div>
-      Transport:
-      <label>
-        <input type="radio" name="uiTransport" value="rtp" checked />
-        RTP
-      </label>
-      <label>
-        <input type="radio" name="uiTransport" value="srtp" />
-        SRTP
-      </label>
-    </div>
+    <fieldset id="uiSettings">
+      <legend>Settings:</legend>
+      <div>
+        Transport:
+        <label>
+          <input type="radio" name="uiTransport" value="rtp" checked />
+          RTP
+        </label>
+        <label>
+          <input type="radio" name="uiTransport" value="srtp" />
+          SRTP
+        </label>
+      </div>
+    </fieldset>
 
     <div>
       <ol>

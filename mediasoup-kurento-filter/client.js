@@ -7,8 +7,8 @@ const SocketPromise = require("socket.io-promise").default;
 
 // ----------------------------------------------------------------------------
 
-// Application state
-// =================
+// Global state
+// ============
 
 const global = {
   server: {
@@ -37,6 +37,7 @@ const global = {
 // ================
 
 const ui = {
+  settings: document.getElementById("uiSettings"),
   console: document.getElementById("uiConsole"),
 
   // <button>
@@ -60,7 +61,7 @@ ui.debug.onclick = () => {
 // ----------------------------------------------------------------------------
 
 window.addEventListener("load", function () {
-  console.log("Page load, connect WebSocket");
+  console.log("Page loaded, connect WebSocket");
   connectSocket();
 
   if ("adapter" in window) {
@@ -74,7 +75,7 @@ window.addEventListener("load", function () {
 });
 
 window.addEventListener("beforeunload", function () {
-  console.log("Page unload, close WebSocket");
+  console.log("Page unloading, close WebSocket");
   global.server.socket.close();
 });
 
@@ -107,8 +108,10 @@ function connectSocket() {
   socket.on("WEBRTC_RECV_PRODUCER_READY", (kind) => {
     console.log(`Server producer is ready, kind: ${kind}`);
 
+    // Update UI
+    ui.settings.disabled = true;
+    ui.startWebRTC.disabled = true;
     ui.connectKurento.disabled = false;
-    ui.debug.disabled = false;
   });
 }
 
@@ -257,6 +260,10 @@ async function connectKurento() {
   const socketRequest = SocketPromise(socket);
   await socketRequest({ type: "START_KURENTO", enableSrtp: enableSrtp });
   await startWebrtcRecv();
+
+  // Update UI
+  ui.connectKurento.disabled = true;
+  ui.debug.disabled = false;
 }
 
 // ----

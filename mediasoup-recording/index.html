@@ -32,49 +32,52 @@
       instructions.
     </p>
 
-    <div>
-      Media:
-      <label>
-        <input type="radio" name="uiMedia" value="audio" />
-        Audio only
-      </label>
-      <label>
-        <input type="radio" name="uiMedia" value="video" />
-        Video only
-      </label>
-      <label>
-        <input type="radio" name="uiMedia" value="audio+video" checked />
-        Audio + Video
-      </label>
-    </div>
+    <fieldset id="uiSettings">
+      <legend>Settings:</legend>
+      <div>
+        Media:
+        <label>
+          <input type="radio" name="uiMedia" value="audio" />
+          Audio only
+        </label>
+        <label>
+          <input type="radio" name="uiMedia" value="video" />
+          Video only
+        </label>
+        <label>
+          <input type="radio" name="uiMedia" value="audio+video" checked />
+          Audio + Video
+        </label>
+      </div>
 
-    <div>
-      Recording program:
-      <label>
-        <input type="radio" name="uiRecorder" value="ffmpeg" />
-        FFmpeg
-      </label>
-      <label>
-        <input type="radio" name="uiRecorder" value="gstreamer" checked />
-        GStreamer
-      </label>
-      <label>
-        <input type="radio" name="uiRecorder" value="external" />
-        External
-      </label>
-    </div>
+      <div>
+        Recording program:
+        <label>
+          <input type="radio" name="uiRecorder" value="ffmpeg" />
+          FFmpeg
+        </label>
+        <label>
+          <input type="radio" name="uiRecorder" value="gstreamer" checked />
+          GStreamer
+        </label>
+        <label>
+          <input type="radio" name="uiRecorder" value="external" />
+          External
+        </label>
+      </div>
 
-    <div>
-      Video codec:
-      <label>
-        <input type="radio" name="uiVCodecName" value="VP8" checked />
-        VP8 (WEBM file)
-      </label>
-      <label>
-        <input type="radio" name="uiVCodecName" value="H264" />
-        H.264 (MP4 file)
-      </label>
-    </div>
+      <div>
+        Video codec:
+        <label>
+          <input type="radio" name="uiVCodecName" value="VP8" checked />
+          VP8 (WEBM file)
+        </label>
+        <label>
+          <input type="radio" name="uiVCodecName" value="H264" />
+          H.264 (MP4 file)
+        </label>
+      </div>
+    </fieldset>
 
     <div>
       <ol>
