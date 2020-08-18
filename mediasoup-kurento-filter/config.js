@@ -71,7 +71,11 @@ module.exports = {
 
     // PlainTransportOptions
     plainTransport: {
-      listenIp: { ip: "127.0.0.1", announcedIp: null },
+      // For KMS running in localhost or with Docker "host network":
+      listenIp: { ip: "0.0.0.0", announcedIp: "127.0.0.1" },
+
+      // For KMS running remotely or behind the Docker network gateway:
+      // listenIp: { ip: "0.0.0.0", announcedIp: "172.17.0.1" },
     },
 
     client: {

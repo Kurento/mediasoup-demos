@@ -19,16 +19,31 @@ This demo shows how to integrate mediasoup with Kurento Media Server, so the lat
 
 
 
+### Configuring the announced IP
+
+If you run KMS from a remote host (including if you run KMS from within a Docker container that doesn't use [Host Networking](https://docs.docker.com/network/host/)), you need to edit *config.js* and change the value of `mediasoup.plainTransport.listenIp.announcedIp` to the IP address where KMS should send data to mediasoup.
+
+For example, if KMS runs from within a Docker container -without host networking-, mediasoup will be reachable from KMS at the IP address `172.17.0.1` so that's the value you should configure into the `announcedIp`.
+
+Besides this, any intermediate NAT should have its UDP ports open so KMS can receive data from mediasoup.
+
+
+
 ## Run
 
-Run these commands:
+First, start an instance of Kurento Media Server:
 
 ```sh
-sudo service kurento-media-server start
+$ sudo service kurento-media-server start
+```
 
-npm install
+If you are using Docker instead, start your container by following the indications from the [kurento-media-server Docker README](https://hub.docker.com/r/kurento/kurento-media-server/).
 
-npm start
+Now, run this demo:
+
+```sh
+$ npm install
+$ npm start
 ```
 
 Then wait for a message such as `Web server is listening on https://localhost:8080`, and direct your browser to that URL.
