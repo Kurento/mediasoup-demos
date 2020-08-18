@@ -191,7 +191,13 @@ async function handleRequest(request, callback) {
 // Creates a mediasoup worker and router
 
 async function handleStartMediasoup() {
-  const worker = await Mediasoup.createWorker(CONFIG.mediasoup.worker);
+  let worker;
+  try {
+    worker = await Mediasoup.createWorker(CONFIG.mediasoup.worker);
+  } catch (err) {
+    console.error("ERROR:", err);
+    process.exit(1);
+  }
   global.mediasoup.worker = worker;
 
   worker.on("died", () => {
@@ -208,7 +214,7 @@ async function handleStartMediasoup() {
   try {
     router = await worker.createRouter(CONFIG.mediasoup.router);
   } catch (err) {
-    console.error("BUG:", err);
+    console.error("ERROR:", err);
     process.exit(1);
   }
   global.mediasoup.router = router;
@@ -231,9 +237,15 @@ async function handleStartMediasoup() {
 async function handleWebrtcRecvStart() {
   const router = global.mediasoup.router;
 
-  const transport = await router.createWebRtcTransport(
-    CONFIG.mediasoup.webrtcTransport
-  );
+  let transport;
+  try {
+    transport = await router.createWebRtcTransport(
+      CONFIG.mediasoup.webrtcTransport
+    );
+  } catch (err) {
+    console.error("ERROR:", err);
+    process.exit(1);
+  }
   global.mediasoup.webrtc.recvTransport = transport;
 
   console.log("mediasoup WebRTC RECV transport created");
@@ -261,9 +273,15 @@ async function handleWebrtcRecvStart() {
 async function handleWebrtcSendStart() {
   const router = global.mediasoup.router;
 
-  const transport = await router.createWebRtcTransport(
-    CONFIG.mediasoup.webrtcTransport
-  );
+  let transport;
+  try {
+    transport = await router.createWebRtcTransport(
+      CONFIG.mediasoup.webrtcTransport
+    );
+  } catch (err) {
+    console.error("ERROR:", err);
+    process.exit(1);
+  }
   global.mediasoup.webrtc.sendTransport = transport;
 
   /*
@@ -605,7 +623,7 @@ async function startKurentoRtpConsumer(enableSrtp) {
   try {
     MediasoupOrtc.validateRtpCapabilities(kmsRtpCapabilities);
   } catch (err) {
-    console.error("BUG:", err);
+    console.error("ERROR:", err);
     process.exit(1);
   }
 
@@ -927,7 +945,7 @@ async function startKurentoRtpProducer(enableSrtp) {
   try {
     MediasoupOrtc.validateRtpCapabilities(kmsRtpCapabilities);
   } catch (err) {
-    console.error("BUG:", err);
+    console.error("ERROR:", err);
     process.exit(1);
   }
 
@@ -975,7 +993,7 @@ async function startKurentoRtpProducer(enableSrtp) {
       paused: false,
     });
   } catch (err) {
-    console.error("BUG:", err);
+    console.error("ERROR:", err);
     process.exit(1);
   }
   global.mediasoup.rtp.recvProducer = msProducer;
