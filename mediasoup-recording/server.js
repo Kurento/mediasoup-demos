@@ -5,6 +5,7 @@ require("util").inspect.defaultOptions.depth = null;
 
 const CONFIG = require("./config");
 const Express = require("express");
+const FFmpegStatic = require("ffmpeg-static");
 const Fs = require("fs");
 const Https = require("https");
 const Mediasoup = require("mediasoup");
@@ -499,13 +500,18 @@ function startRecordingFfmpeg() {
   const useVideo = videoEnabled();
   const useH264 = h264Enabled();
 
+  // const cmdProgram = "ffmpeg"; // Found through $PATH
+  const cmdProgram = FFmpegStatic; // From package "ffmpeg-static"
+
   let cmdInputPath = `${__dirname}/recording/input-vp8.sdp`;
   let cmdOutputPath = `${__dirname}/recording/output-ffmpeg-vp8.webm`;
   let cmdCodec = "";
   let cmdFormat = "-f webm -flags +global_header";
 
   // Ensure correct FFmpeg version is installed
-  const ffmpegOut = Process.execSync("ffmpeg -version", { encoding: "utf8" });
+  const ffmpegOut = Process.execSync(cmdProgram + " -version", {
+    encoding: "utf8",
+  });
   const ffmpegVerMatch = /ffmpeg version (\d+)\.(\d+)\.(\d+)/.exec(ffmpegOut);
   let ffmpegOk = false;
   if (ffmpegOut.startsWith("ffmpeg version git")) {
@@ -514,9 +520,7 @@ function startRecordingFfmpeg() {
     ffmpegOk = true;
   } else if (ffmpegVerMatch) {
     const ffmpegVerMajor = parseInt(ffmpegVerMatch[1], 10);
-    const ffmpegVerMinor = parseInt(ffmpegVerMatch[2], 10);
-    const ffmpegVerPatch = parseInt(ffmpegVerMatch[3], 10);
-    if (ffmpegVerMajor >= 4 && ffmpegVerMinor >= 0 && ffmpegVerPatch >= 0) {
+    if (ffmpegVerMajor >= 4) {
       ffmpegOk = true;
     }
   }
@@ -543,7 +547,6 @@ function startRecordingFfmpeg() {
   }
 
   // Run process
-  const cmdProgram = "ffmpeg"; // Found through $PATH
   const cmdArgStr = [
     "-nostdin",
     "-protocol_whitelist file,rtp,udp",

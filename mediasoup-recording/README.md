@@ -34,41 +34,7 @@ sudo apt-get update && sudo apt-get install --yes \
 
 ### Installing FFmpeg
 
-**FFmpeg >= 4.0 is required**, but most Linux distros come with older versions.
-
-To check if your system has a modern enough version, use this command:
-
-```sh
-apt-cache policy ffmpeg | grep Candidate
-```
-
-For example, this is the output on Ubuntu 16.04 (Xenial):
-
-```sh
-apt-cache policy ffmpeg | grep Candidate
-    > Candidate: 7:2.8.15-0ubuntu0.16.04.1
-```
-
-The version is `2.8.15`, so we cannot use this FFmpeg because it is too old.
-
-If your FFmpeg version is high enough, just install it from the package manager:
-
-```sh
-sudo apt-get update && sudo apt-get install --yes \
-    ffmpeg
-```
-
-However, as of this writing most Linux distros come with too old versions of FFmpeg, so the recommendation is to download an up-to-date static build from [John Van Sickle's website](https://www.johnvansickle.com/ffmpeg/).
-
-You can setup the latest available FFmpeg version with these commands:
-
-```sh
-cd /tmp/
-wget "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz"
-tar xf ffmpeg-release-amd64-static.tar.xz
-cd ffmpeg-*-amd64-static/
-sudo cp ffmpeg /usr/local/bin/
-```
+This demo uses [ffmpeg-static](https://www.npmjs.com/package/ffmpeg-static) to install a static FFmpeg binary appropriate for your platform (Linux, Windows, Mac) as part of the `npm install` command. So in principle you don't need to worry about installing FFmpeg by yourself.
 
 
 
