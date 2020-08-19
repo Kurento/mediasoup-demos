@@ -47,3 +47,9 @@ $ npm start
 ```
 
 Then wait for a message such as `Web server is listening on https://localhost:8080`, and direct your browser to that URL.
+
+You can set the environment variable `DEBUG` to control the log level. For example, enable the *trace* level in order to see all internal mediasoup *RtpParameters* and *RtpCapabilities* objects that are managed by the server:
+
+```sh
+$ DEBUG="demo:trace" npm start
+```
