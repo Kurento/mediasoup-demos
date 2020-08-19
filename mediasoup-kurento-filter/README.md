@@ -21,9 +21,19 @@ This demo shows how to integrate mediasoup with Kurento Media Server, so the lat
 
 ### Configuring the announced IP
 
-If you run KMS from a remote host (including if you run KMS from a Docker container that doesn't use [Host Networking](https://docs.docker.com/network/host/)), you need to edit *config.js* and change the value of `mediasoup.plainTransport.listenIp.announcedIp` to the IP address where KMS can reach and send data to mediasoup.
+The config parameter `mediasoup.plainTransport.listenIp.announcedIp` is used to tell KMS the IP address where mediasoup can be reached. This IP changes, depending on where KMS is being run. For example, if you run KMS from a remote host (including if you run KMS from a Docker container that doesn't use [Host Networking](https://docs.docker.com/network/host/)), you need to change this parameter to the IP address where KMS can reach and send data to mediasoup.
 
-For example, if KMS runs from Docker for Linux -without host networking-, mediasoup will be reachable from within the container at the IP address `172.17.0.1` so that's the value you should configure into the `announcedIp`. However, if using Docker for Mac or Windows, containers cannot reach the host directly with a default IP; instead, the official recommendation is to resolve the special DNS name `host.docker.internal` *from inside the container itself*, to obtain the actual host IP address where mediasoup can be reached. For more information about this: [Networking features in Docker Desktop for Mac](https://docs.docker.com/docker-for-mac/networking/).
+When using Docker to run KMS, the value of this parameter will depend on the specific networking settings of the Docker daemon:
+
+* If KMS is running from a Linux Docker container that uses Host Networking, the default of `127.0.0.1` will work fine.
+
+* If KMS is running from a Linux Docker container *without* Host Networking, the host will be reachable at the Docker's common network gateway IP, which by default is `172.17.0.1`.
+
+* If using Docker for Mac or Windows, containers cannot reach the host directly through a common network gateway. Instead, the official recommendation (see [Networking features in Docker Desktop for Mac](https://docs.docker.com/docker-for-mac/networking/)) is to resolve the special DNS name `host.docker.internal` *from inside the container itself*. You can get this IP easily, with this command:
+
+  ```sh
+  $ docker run --rm alpine nslookup host.docker.internal
+  ```
 
 Besides all this, any intermediate NAT should have its UDP ports open so KMS can receive data from mediasoup.
 

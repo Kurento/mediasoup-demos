@@ -80,8 +80,9 @@ module.exports = {
       //listenIp: { ip: "0.0.0.0", announcedIp: "172.17.0.1" },
 
       // If running KMS from Docker for Mac or Windows, use the IP address that
-      // results from resolving the hostname "host.docker.internal" from
-      // *inside* the Docker container.
+      // results from resolving the special DNS name `host.docker.internal`
+      // *from inside the container itself*. You can get it with this command:
+      // $ docker run --rm alpine nslookup host.docker.internal
       //listenIp: { ip: "0.0.0.0", announcedIp: "192.168.65.2" },
     },
 
