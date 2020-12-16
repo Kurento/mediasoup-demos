@@ -4,8 +4,7 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
-    "prestart": "browserify client.js --outfile client-bundle.js --standalone client",
-    "start": "node server.js"
+    "prestart": "browserify client.js --outfile client-bundle.js --standalone client"
   },
   "repository": {
     "type": "git",

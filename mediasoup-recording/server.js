@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 "use strict";
 
 // Log whole objects instead of giving up after two levels of nesting
