@@ -2,6 +2,7 @@ const Process = require("child_process");
 
 const FFmpegStatic = require("ffmpeg-static");
 const Mediasoup = require("mediasoup");
+const {sync: mkdirp} = require('mkdirp');
 
 
 async function startRecordingExternal() {
@@ -73,10 +74,10 @@ module.exports = function(CONFIG)
    *     -nostdin \
    *     -protocol_whitelist file,rtp,udp \
    *     -fflags +genpts \
-   *     -i recording/input-vp8.sdp \
+   *     -i sdp/input-vp8.sdp \
    *     -map 0:a:0 -c:a copy -map 0:v:0 -c:v copy \
    *     -f webm -flags +global_header \
-   *     -y recording/output-ffmpeg-vp8.webm
+   *     -y ../recording/output-ffmpeg-vp8.webm
    *
    * NOTES:
    *
@@ -99,7 +100,7 @@ module.exports = function(CONFIG)
     // const cmdProgram = "ffmpeg"; // Found through $PATH
     const cmdProgram = FFmpegStatic; // From package "ffmpeg-static"
 
-    let cmdInputPath = `${__dirname}/../recording/input-vp8.sdp`;
+    let cmdInputPath = `${__dirname}/sdp/input-vp8.sdp`;
     let cmdOutputPath = `${__dirname}/../recording/output-ffmpeg-vp8.webm`;
     let cmdCodec = "";
     let cmdFormat = "-f webm -flags +global_header";
@@ -133,7 +134,7 @@ module.exports = function(CONFIG)
       cmdCodec += " -map 0:v:0 -c:v copy";
 
       if (useH264) {
-        cmdInputPath = `${__dirname}/../recording/input-h264.sdp`;
+        cmdInputPath = `${__dirname}/sdp/input-h264.sdp`;
         cmdOutputPath = `${__dirname}/../recording/output-ffmpeg-h264.mp4`;
 
         // "-strict experimental" is required to allow storing
@@ -209,10 +210,10 @@ module.exports = function(CONFIG)
    *
    * gst-launch-1.0 \
    *     --eos-on-shutdown \
-   *     filesrc location=recording/input-vp8.sdp \
+   *     filesrc location=sdp/input-vp8.sdp \
    *         ! sdpdemux timeout=0 name=demux \
    *     webmmux name=mux \
-   *         ! filesink location=recording/output-gstreamer-vp8.webm \
+   *         ! filesink location=../recording/output-gstreamer-vp8.webm \
    *     demux. ! queue \
    *         ! rtpopusdepay \
    *         ! opusparse \
@@ -222,7 +223,7 @@ module.exports = function(CONFIG)
    *         ! mux.
    *
    * For H.264, we need to change several parts of the GStreamer pipeline:
-   * -> filesrc location=recording/input-h264.sdp
+   * -> filesrc location=sdp/input-h264.sdp
    * -> filesink location=output-gstreamer-h264.mp4
    * -> mp4mux faststart=true (see README for info and why use MP4 Fast-Start)
    * -> rtph264depay and h264parse in the video branch
@@ -238,7 +239,7 @@ module.exports = function(CONFIG)
     const useVideo = videoEnabled();
     const useH264 = h264Enabled();
 
-    let cmdInputPath = `${__dirname}/../recording/input-vp8.sdp`;
+    let cmdInputPath = `${__dirname}/sdp/input-vp8.sdp`;
     let cmdOutputPath = `${__dirname}/../recording/output-gstreamer-vp8.webm`;
     let cmdMux = "webmmux";
     let cmdAudioBranch = "";
@@ -255,7 +256,7 @@ module.exports = function(CONFIG)
 
     if (useVideo) {
       if (useH264) {
-        cmdInputPath = `${__dirname}/../recording/input-h264.sdp`;
+        cmdInputPath = `${__dirname}/sdp/input-h264.sdp`;
         cmdOutputPath = `${__dirname}/../recording/output-gstreamer-h264.mp4`;
         cmdMux = `mp4mux faststart=true faststart-file=${cmdOutputPath}.tmp`;
 
@@ -552,6 +553,8 @@ module.exports = function(CONFIG)
       }
 
       // ----
+
+      mkdirp(`${__dirname}/../recording`)
 
       switch (recorder) {
         case "ffmpeg":

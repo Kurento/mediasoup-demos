@@ -22,7 +22,8 @@
     "express-ws": "^4.0.0",
     "ffmpeg-static": "^4.2.7",
     "mediasoup": "~3.6.29",
-    "mediasoup-client": "~3.6.24"
+    "mediasoup-client": "~3.6.24",
+    "mkdirp": "^0.5.5"
   },
   "devDependencies": {
     "browserify": "^17.0.0",
