@@ -1,9 +1,10 @@
 "use strict";
 
-const CONFIG = require("./config");
+const JsonRpcClient = require('@transfast/jsonrpcclient')
 const MediasoupClient = require("mediasoup-client");
-const SocketClient = require("socket.io-client");
-const SocketPromise = require("socket.io-promise").default;
+
+const CONFIG = require("./config");
+
 
 // ----------------------------------------------------------------------------
 
@@ -12,6 +13,7 @@ const SocketPromise = require("socket.io-promise").default;
 
 const global = {
   server: {
+    jsonRpcClient: null,
     socket: null,
   },
 
@@ -77,32 +79,57 @@ window.addEventListener("beforeunload", function () {
 
 // ----
 
+function send(data)
+{
+  global.server.socket.send(JSON.stringify(data))
+}
+
 function connectSocket() {
-  const serverUrl = `https://${window.location.host}`;
+  const serverUrl = `wss://${window.location.host}${CONFIG.https.wsPath}`;
 
   console.log("Connect with Application Server:", serverUrl);
 
-  const socket = SocketClient(serverUrl, {
-    path: CONFIG.https.wsPath,
-    transports: ["websocket"],
-  });
-  global.server.socket = socket;
+  const socket = new WebSocket(serverUrl);
 
-  socket.on("connect", () => {
+  socket.addEventListener("open", function()
+  {
     console.log("WebSocket connected");
   });
 
-  socket.on("error", (err) => {
+  socket.addEventListener("close", function()
+  {
+    console.log("WebSocket closed");
+  });
+
+  socket.addEventListener("error", function(err)
+  {
     console.error("WebSocket error:", err);
   });
 
-  socket.on("LOG", (log) => {
-    ui.console.value += log + "\n";
-    ui.console.scrollTop = ui.console.scrollHeight;
+  const jsonRpcClient = JsonRpcClient(methods, send)
+
+  socket.addEventListener("message", function({data})
+  {
+    jsonRpcClient.onMessage(JSON.parse(data))
   });
 
-  socket.on("WEBRTC_RECV_PRODUCER_READY", (kind) => {
+  global.server.jsonRpcClient = jsonRpcClient;
+  global.server.socket = socket;
+}
+
+
+const methods =
+{
+  LOG(log)
+  {
+    ui.console.value += log + "\n";
+    ui.console.scrollTop = ui.console.scrollHeight;
+  },
+
+  WEBRTC_RECV_PRODUCER_READY(kind)
+  {
     console.log(`Server producer is ready, kind: ${kind}`);
+
     switch (kind) {
       case "audio":
         global.recording.waitForAudio = false;
@@ -118,150 +145,165 @@ function connectSocket() {
       ui.startWebRTC.disabled = true;
       ui.startRecording.disabled = false;
     }
-  });
+  }
 }
 
 // ----------------------------------------------------------------------------
 
-async function startWebRTC() {
+function startWebRTC() {
   console.log("Start WebRTC transmission from browser to mediasoup");
 
-  await startMediasoup();
-  await startWebrtcSend();
+  startMediasoup(function(error)
+  {
+    if(error) return console.error(error)
+
+    startWebrtcSend(function(error)
+    {
+      if(error) return console.error(error)
+    })
+  })
 }
 
 // ----
 
-async function startMediasoup() {
-  const socket = global.server.socket;
-
-  const socketRequest = SocketPromise(socket);
+function startMediasoup(callback)
+{
   const uiVCodecName = document.querySelector(
     "input[name='uiVCodecName']:checked"
   ).value;
-  const response = await socketRequest({
-    type: "START_MEDIASOUP",
-    vCodecName: uiVCodecName,
-  });
-  const routerRtpCapabilities = response.data;
 
-  console.log("[server] mediasoup router created");
+  send(global.server.jsonRpcClient.request("START_MEDIASOUP", [uiVCodecName],
+  async function(error, routerRtpCapabilities)
+  {
+    if(error) return console.error(error)
 
-  let device = null;
-  try {
-    device = new MediasoupClient.Device();
-  } catch (err) {
-    console.error(err);
-    return;
-  }
-  global.mediasoup.device = device;
+    console.log("[server] mediasoup router created");
 
-  try {
-    await device.load({ routerRtpCapabilities });
-  } catch (err) {
-    console.error(err);
-    return;
-  }
+    let device = null;
+    try {
+      device = new MediasoupClient.Device();
+    } catch (err) {
+      return callback(err);
+    }
+    global.mediasoup.device = device;
 
-  console.log(
-    "mediasoup device created, handlerName: %s, use audio: %s, use video: %s",
-    device.handlerName,
-    device.canProduce("audio"),
-    device.canProduce("video")
-  );
+    try {
+      await device.load({ routerRtpCapabilities });
+    } catch (err) {
+      return callback(err);
+    }
 
-  // Uncomment for debug
-  // console.log("rtpCapabilities:\n%O", device.rtpCapabilities);
+    console.log(
+      "mediasoup device created, handlerName: %s, use audio: %s, use video: %s",
+      device.handlerName,
+      device.canProduce("audio"),
+      device.canProduce("video")
+    );
+
+    // Uncomment for debug
+    // console.log("rtpCapabilities:\n%O", device.rtpCapabilities);
+
+    callback()
+  }));
 }
 
 // ----
 
-async function startWebrtcSend() {
+function startWebrtcSend(callback)
+{
   const device = global.mediasoup.device;
-  const socket = global.server.socket;
+  const jsonRpcClient = global.server.jsonRpcClient;
 
   // mediasoup WebRTC transport
   // --------------------------
 
-  const socketRequest = SocketPromise(socket);
-  const response = await socketRequest({ type: "WEBRTC_RECV_START" });
-  const webrtcTransportOptions = response.data;
+  send(jsonRpcClient.request("WEBRTC_RECV_START", [],
+    async function(error, webrtcTransportOptions)
+    {
+      if(error) return console.error(error)
 
-  console.log("[server] WebRTC RECV transport created");
+      console.log("[server] WebRTC RECV transport created");
 
-  let transport;
-  try {
-    transport = device.createSendTransport(webrtcTransportOptions);
-  } catch (err) {
-    console.error(err);
-    return;
-  }
-  global.mediasoup.webrtc.transport = transport;
+      let transport;
+      try {
+        transport = device.createSendTransport(webrtcTransportOptions);
+      } catch (err) {
+        return callback(err);
+      }
+      global.mediasoup.webrtc.transport = transport;
 
-  console.log("[client] WebRTC SEND transport created");
+      console.log("[client] WebRTC SEND transport created");
 
-  // "connect" is emitted upon the first call to transport.produce()
-  transport.on("connect", ({ dtlsParameters }, callback, _errback) => {
-    // Signal local DTLS parameters to the server side transport
-    socket.emit("WEBRTC_RECV_CONNECT", dtlsParameters);
-    callback();
-  });
+      // "connect" is emitted upon the first call to transport.produce()
+      transport.on("connect", ({ dtlsParameters }, callback, _errback) => {
+        // Signal local DTLS parameters to the server side transport
+        send(jsonRpcClient.notification("WEBRTC_RECV_CONNECT", [dtlsParameters]));
+        callback();
+      });
 
-  // "produce" is emitted upon each call to transport.produce()
-  transport.on("produce", (produceParameters, callback, _errback) => {
-    socket.emit("WEBRTC_RECV_PRODUCE", produceParameters, (producerId) => {
-      console.log("[server] WebRTC RECV producer created");
-      callback({ producerId });
-    });
-  });
+      // "produce" is emitted upon each call to transport.produce()
+      transport.on("produce", function(produceParameters, callback, _errback)
+      {
+        send(jsonRpcClient.request("WEBRTC_RECV_PRODUCE", [produceParameters],
+          function(producerId)
+          {
+            console.log("[server] WebRTC RECV producer created");
 
-  // mediasoup WebRTC producer
-  // -------------------------
+            callback({ producerId });
+          })
+        );
+      });
 
-  // Get user media as required
+      // mediasoup WebRTC producer
+      // -------------------------
 
-  const uiMedia = document.querySelector("input[name='uiMedia']:checked").value;
+      // Get user media as required
 
-  let useAudio = false;
-  let useVideo = false;
-  if (uiMedia.indexOf("audio") !== -1) {
-    useAudio = true;
-    global.recording.waitForAudio = true;
-  }
-  if (uiMedia.indexOf("video") !== -1) {
-    useVideo = true;
-    global.recording.waitForVideo = true;
-  }
+      const uiMedia = document.querySelector("input[name='uiMedia']:checked").value;
 
-  let stream;
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({
-      audio: useAudio,
-      video: useVideo,
-    });
-  } catch (err) {
-    console.error(err);
-    return;
-  }
+      let useAudio = false;
+      let useVideo = false;
+      if (uiMedia.indexOf("audio") !== -1) {
+        useAudio = true;
+        global.recording.waitForAudio = true;
+      }
+      if (uiMedia.indexOf("video") !== -1) {
+        useVideo = true;
+        global.recording.waitForVideo = true;
+      }
 
-  ui.localVideo.srcObject = stream;
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: useAudio,
+          video: useVideo,
+        });
+      } catch (err) {
+        return callback(err);
+      }
 
-  // Start mediasoup-client's WebRTC producer(s)
+      ui.localVideo.srcObject = stream;
 
-  if (useAudio) {
-    const audioTrack = stream.getAudioTracks()[0];
-    const audioProducer = await transport.produce({ track: audioTrack });
-    global.mediasoup.webrtc.audioProducer = audioProducer;
-  }
+      // Start mediasoup-client's WebRTC producer(s)
 
-  if (useVideo) {
-    const videoTrack = stream.getVideoTracks()[0];
-    const videoProducer = await transport.produce({
-      track: videoTrack,
-      ...CONFIG.mediasoup.client.videoProducer,
-    });
-    global.mediasoup.webrtc.videoProducer = videoProducer;
-  }
+      if (useAudio) {
+        const audioTrack = stream.getAudioTracks()[0];
+        const audioProducer = await transport.produce({ track: audioTrack });
+        global.mediasoup.webrtc.audioProducer = audioProducer;
+      }
+
+      if (useVideo) {
+        const videoTrack = stream.getVideoTracks()[0];
+        const videoProducer = await transport.produce({
+          track: videoTrack,
+          ...CONFIG.mediasoup.client.videoProducer,
+        });
+        global.mediasoup.webrtc.videoProducer = videoProducer;
+      }
+
+      callback()
+    }
+  ))
 }
 
 // ----------------------------------------------------------------------------
@@ -269,7 +311,8 @@ async function startWebrtcSend() {
 function startRecording() {
   const uiRecorder = document.querySelector("input[name='uiRecorder']:checked")
     .value;
-  global.server.socket.emit("START_RECORDING", uiRecorder);
+
+  send(global.server.jsonRpcClient.notification("START_RECORDING", [uiRecorder]));
 
   // Update UI
   ui.startRecording.disabled = true;
@@ -279,7 +322,7 @@ function startRecording() {
 // ----------------------------------------------------------------------------
 
 function stopRecording() {
-  global.server.socket.emit("STOP_RECORDING");
+  send(global.server.jsonRpcClient.notification("STOP_RECORDING"));
 
   // Update UI
   ui.stopRecording.disabled = true;

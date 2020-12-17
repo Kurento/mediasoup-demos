@@ -2,18 +2,23 @@
 
 "use strict";
 
+const Process = require("child_process");
+const Https = require("https");
+const Fs = require("fs");
+const Util = require("util");
+
+const JsonRpcClient = require('@transfast/jsonrpcclient')
+const Express = require("express");
+const expressWs = require('express-ws');
+const FFmpegStatic = require("ffmpeg-static");
+const Mediasoup = require("mediasoup");
+
+const CONFIG = require("./config");
+
+
 // Log whole objects instead of giving up after two levels of nesting
 require("util").inspect.defaultOptions.depth = null;
 
-const CONFIG = require("./config");
-const Express = require("express");
-const FFmpegStatic = require("ffmpeg-static");
-const Fs = require("fs");
-const Https = require("https");
-const Mediasoup = require("mediasoup");
-const SocketServer = require("socket.io");
-const Process = require("child_process");
-const Util = require("util");
 
 // ----------------------------------------------------------------------------
 
@@ -22,10 +27,8 @@ const Util = require("util");
 
 const global = {
   server: {
-    expressApp: null,
-    https: null,
-    socket: null,
-    socketServer: null,
+    jsonRpcClient: null,
+    socket: null
   },
 
   mediasoup: {
@@ -53,17 +56,23 @@ const global = {
 
 // ----------------------------------------------------------------------------
 
+function send(data)
+{
+  global.server.socket?.send(JSON.stringify(data))
+}
+
+
 // Logging
 // =======
 
 // Send all logging to both console and WebSocket
-for (const name of ["log", "info", "warn", "error"]) {
+for (const name of ["debug", "log", "info", "warn", "error"]) {
   const method = console[name];
+
   console[name] = function (...args) {
     method(...args);
-    if (global.server.socket) {
-      global.server.socket.emit("LOG", Util.format(...args));
-    }
+
+    send(global.server.jsonRpcClient?.notification("LOG", [Util.format(...args)]));
   };
 }
 
@@ -71,91 +80,84 @@ for (const name of ["log", "info", "warn", "error"]) {
 
 // HTTPS server
 // ============
+
+const app = Express()
+
+const https = Https.createServer(
 {
-  const expressApp = Express();
-  global.server.expressApp = expressApp;
-  expressApp.use("/", Express.static(__dirname));
+  cert: Fs.readFileSync(CONFIG.https.cert),
+  key: Fs.readFileSync(CONFIG.https.certKey),
+}, app);
 
-  const https = Https.createServer(
-    {
-      cert: Fs.readFileSync(CONFIG.https.cert),
-      key: Fs.readFileSync(CONFIG.https.certKey),
-    },
-    expressApp
+expressWs(app, https, {
+  pingTimeout: CONFIG.https.wsPingTimeout,
+  pingInterval: CONFIG.https.wsPingInterval,
+});
+
+
+app.use("/", Express.static(__dirname));
+
+https.on("listening", () => {
+  console.log(
+    `Web server is listening on https://localhost:${CONFIG.https.port}`
   );
-  global.server.https = https;
+});
+https.on("error", (err) => {
+  console.error("HTTPS error:", err.message);
+});
+https.on("tlsClientError", (err) => {
+  if (err.message.includes("alert number 46")) {
+    // Ignore: this is the client browser rejecting our self-signed certificate
+  } else {
+    console.error("TLS error:", err);
+  }
+});
+https.listen(CONFIG.https.port);
 
-  https.on("listening", () => {
-    console.log(
-      `Web server is listening on https://localhost:${CONFIG.https.port}`
-    );
-  });
-  https.on("error", (err) => {
-    console.error("HTTPS error:", err.message);
-  });
-  https.on("tlsClientError", (err) => {
-    if (err.message.includes("alert number 46")) {
-      // Ignore: this is the client browser rejecting our self-signed certificate
-    } else {
-      console.error("TLS error:", err);
-    }
-  });
-  https.listen(CONFIG.https.port);
-}
 
 // ----------------------------------------------------------------------------
 
 // WebSocket server
 // ================
+
+app.ws(CONFIG.https.wsPath, function handler(socket, request)
 {
-  const socketServer = SocketServer(global.server.https, {
-    path: CONFIG.https.wsPath,
-    serveClient: false,
-    pingTimeout: CONFIG.https.wsPingTimeout,
-    pingInterval: CONFIG.https.wsPingInterval,
-    transports: ["websocket"],
+  console.log(
+    "WebSocket server connected, port: %s",
+    request.connection.remotePort
+  );
+
+  const jsonRpcClient = JsonRpcClient(methods, send)
+
+  // Accept requests only from a single client
+  // TODO fail on HTTP upgrade with 409 CONFLICT or 423 LOCKED
+  if(global.server.jsonRpcClient)
+  {
+    socket.send(JSON.stringify(jsonRpcClient.notification("error",
+      ['Client already connected'])));
+
+    return socket.close()
+  }
+
+  socket.addEventListener("close", onClose);
+  socket.addEventListener("message", function({data})
+  {
+    console.log('message', data)
+    jsonRpcClient.onMessage(JSON.parse(data))
   });
-  global.server.socketServer = socketServer;
 
-  socketServer.on("connect", (socket) => {
-    console.log(
-      "WebSocket server connected, port: %s",
-      socket.request.connection.remotePort
-    );
-    global.server.socket = socket;
+  global.server.jsonRpcClient = jsonRpcClient;
+  global.server.socket = socket;
+});
 
-    // Events sent by the client's "socket.io-promise" have the fixed name
-    // "request", and a field "type" that we use as identifier
-    socket.on("request", handleRequest);
-
-    // Events sent by the client's "socket.io-client" have a name
-    // that we use as identifier
-    socket.on("WEBRTC_RECV_CONNECT", handleWebrtcRecvConnect);
-    socket.on("WEBRTC_RECV_PRODUCE", handleWebrtcRecvProduce);
-    socket.on("START_RECORDING", handleStartRecording);
-    socket.on("STOP_RECORDING", handleStopRecording);
-  });
-}
 
 // ----
 
-async function handleRequest(request, callback) {
-  let responseData = null;
-
-  switch (request.type) {
-    case "START_MEDIASOUP":
-      responseData = await handleStartMediasoup(request.vCodecName);
-      break;
-    case "WEBRTC_RECV_START":
-      responseData = await handleWebrtcRecvStart();
-      break;
-    default:
-      console.warn("Invalid request type:", request.type);
-      break;
-  }
-
-  callback({ type: request.type, data: responseData });
+function onClose()
+{
+  delete global.server.jsonRpcClient;
 }
+
 
 // ----------------------------------------------------------------------------
 
@@ -179,300 +181,301 @@ function h264Enabled() {
 
 // ----------------------------------------------------------------------------
 
-/*
- * Creates a mediasoup worker and router.
- * vCodecName: One of "VP8", "H264".
- */
-async function handleStartMediasoup(vCodecName) {
-  const worker = await Mediasoup.createWorker(CONFIG.mediasoup.worker);
-  global.mediasoup.worker = worker;
+const methods =
+{
+  /*
+   * Creates a mediasoup worker and router.
+   * vCodecName: One of "VP8", "H264".
+   */
+  async START_MEDIASOUP(vCodecName) {
+    const worker = await Mediasoup.createWorker(CONFIG.mediasoup.worker);
+    global.mediasoup.worker = worker;
 
-  worker.on("died", () => {
-    console.error(
-      "mediasoup worker died, exit in 3 seconds... [pid:%d]",
-      worker.pid
+    worker.on("died", () => {
+      console.error(
+        "mediasoup worker died, exit in 3 seconds... [pid:%d]",
+        worker.pid
+      );
+      setTimeout(() => process.exit(1), 3000);
+    });
+
+    console.log("mediasoup worker created [pid:%d]", worker.pid);
+
+    // Build a RouterOptions based on 'CONFIG.mediasoup.router' and the
+    // requested 'vCodecName'
+    const routerOptions = {
+      mediaCodecs: [],
+    };
+
+    const audioCodec = CONFIG.mediasoup.router.mediaCodecs.find(
+      (c) => c.mimeType === "audio/opus"
     );
-    setTimeout(() => process.exit(1), 3000);
-  });
+    if (!audioCodec) {
+      console.error("Undefined codec mime type: audio/opus -- Check config.js");
+      process.exit(1);
+    }
+    routerOptions.mediaCodecs.push(audioCodec);
 
-  console.log("mediasoup worker created [pid:%d]", worker.pid);
-
-  // Build a RouterOptions based on 'CONFIG.mediasoup.router' and the
-  // requested 'vCodecName'
-  const routerOptions = {
-    mediaCodecs: [],
-  };
-
-  const audioCodec = CONFIG.mediasoup.router.mediaCodecs.find(
-    (c) => c.mimeType === "audio/opus"
-  );
-  if (!audioCodec) {
-    console.error("Undefined codec mime type: audio/opus -- Check config.js");
-    process.exit(1);
-  }
-  routerOptions.mediaCodecs.push(audioCodec);
-
-  const videoCodec = CONFIG.mediasoup.router.mediaCodecs.find(
-    (c) => c.mimeType === `video/${vCodecName}`
-  );
-  if (!videoCodec) {
-    console.error(
-      `Undefined codec mime type: video/${vCodecName} -- Check config.js`
+    const videoCodec = CONFIG.mediasoup.router.mediaCodecs.find(
+      (c) => c.mimeType === `video/${vCodecName}`
     );
-    process.exit(1);
+    if (!videoCodec) {
+      console.error(
+        `Undefined codec mime type: video/${vCodecName} -- Check config.js`
+      );
+      process.exit(1);
+    }
+    routerOptions.mediaCodecs.push(videoCodec);
+
+    let router;
+    try {
+      router = await worker.createRouter(routerOptions);
+    } catch (err) {
+      console.error("BUG:", err);
+      process.exit(1);
+    }
+    global.mediasoup.router = router;
+
+    // At this point, the computed "router.rtpCapabilities" includes the
+    // router codecs enhanced with retransmission and RTCP capabilities,
+    // and the list of RTP header extensions supported by mediasoup.
+
+    console.log("mediasoup router created");
+
+    console.log("mediasoup router RtpCapabilities:\n%O", router.rtpCapabilities);
+
+    return router.rtpCapabilities;
+  },
+
+  async START_RECORDING(recorder) {
+    const router = global.mediasoup.router;
+
+    const useAudio = audioEnabled();
+    const useVideo = videoEnabled();
+
+    // Start mediasoup's RTP consumer(s)
+
+    if (useAudio) {
+      const rtpTransport = await router.createPlainTransport({
+        // No RTP will be received from the remote side
+        comedia: false,
+
+        // FFmpeg and GStreamer don't support RTP/RTCP multiplexing ("a=rtcp-mux" in SDP)
+        rtcpMux: false,
+
+        ...CONFIG.mediasoup.plainTransport,
+      });
+      global.mediasoup.rtp.audioTransport = rtpTransport;
+
+      await rtpTransport.connect({
+        ip: CONFIG.mediasoup.recording.ip,
+        port: CONFIG.mediasoup.recording.audioPort,
+        rtcpPort: CONFIG.mediasoup.recording.audioPortRtcp,
+      });
+
+      console.log(
+        "mediasoup AUDIO RTP SEND transport connected: %s:%d <--> %s:%d (%s)",
+        rtpTransport.tuple.localIp,
+        rtpTransport.tuple.localPort,
+        rtpTransport.tuple.remoteIp,
+        rtpTransport.tuple.remotePort,
+        rtpTransport.tuple.protocol
+      );
+
+      console.log(
+        "mediasoup AUDIO RTCP SEND transport connected: %s:%d <--> %s:%d (%s)",
+        rtpTransport.rtcpTuple.localIp,
+        rtpTransport.rtcpTuple.localPort,
+        rtpTransport.rtcpTuple.remoteIp,
+        rtpTransport.rtcpTuple.remotePort,
+        rtpTransport.rtcpTuple.protocol
+      );
+
+      const rtpConsumer = await rtpTransport.consume({
+        producerId: global.mediasoup.webrtc.audioProducer.id,
+        rtpCapabilities: router.rtpCapabilities, // Assume the recorder supports same formats as mediasoup's router
+        paused: true,
+      });
+      global.mediasoup.rtp.audioConsumer = rtpConsumer;
+
+      console.log(
+        "mediasoup AUDIO RTP SEND consumer created, kind: %s, type: %s, paused: %s, SSRC: %s CNAME: %s",
+        rtpConsumer.kind,
+        rtpConsumer.type,
+        rtpConsumer.paused,
+        rtpConsumer.rtpParameters.encodings[0].ssrc,
+        rtpConsumer.rtpParameters.rtcp.cname
+      );
+    }
+
+    if (useVideo) {
+      const rtpTransport = await router.createPlainTransport({
+        // No RTP will be received from the remote side
+        comedia: false,
+
+        // FFmpeg and GStreamer don't support RTP/RTCP multiplexing ("a=rtcp-mux" in SDP)
+        rtcpMux: false,
+
+        ...CONFIG.mediasoup.plainTransport,
+      });
+      global.mediasoup.rtp.videoTransport = rtpTransport;
+
+      await rtpTransport.connect({
+        ip: CONFIG.mediasoup.recording.ip,
+        port: CONFIG.mediasoup.recording.videoPort,
+        rtcpPort: CONFIG.mediasoup.recording.videoPortRtcp,
+      });
+
+      console.log(
+        "mediasoup VIDEO RTP SEND transport connected: %s:%d <--> %s:%d (%s)",
+        rtpTransport.tuple.localIp,
+        rtpTransport.tuple.localPort,
+        rtpTransport.tuple.remoteIp,
+        rtpTransport.tuple.remotePort,
+        rtpTransport.tuple.protocol
+      );
+
+      console.log(
+        "mediasoup VIDEO RTCP SEND transport connected: %s:%d <--> %s:%d (%s)",
+        rtpTransport.rtcpTuple.localIp,
+        rtpTransport.rtcpTuple.localPort,
+        rtpTransport.rtcpTuple.remoteIp,
+        rtpTransport.rtcpTuple.remotePort,
+        rtpTransport.rtcpTuple.protocol
+      );
+
+      const rtpConsumer = await rtpTransport.consume({
+        producerId: global.mediasoup.webrtc.videoProducer.id,
+        rtpCapabilities: router.rtpCapabilities, // Assume the recorder supports same formats as mediasoup's router
+        paused: true,
+      });
+      global.mediasoup.rtp.videoConsumer = rtpConsumer;
+
+      console.log(
+        "mediasoup VIDEO RTP SEND consumer created, kind: %s, type: %s, paused: %s, SSRC: %s CNAME: %s",
+        rtpConsumer.kind,
+        rtpConsumer.type,
+        rtpConsumer.paused,
+        rtpConsumer.rtpParameters.encodings[0].ssrc,
+        rtpConsumer.rtpParameters.rtcp.cname
+      );
+    }
+
+    // ----
+
+    switch (recorder) {
+      case "ffmpeg":
+        await startRecordingFfmpeg();
+        break;
+      case "gstreamer":
+        await startRecordingGstreamer();
+        break;
+      case "external":
+        await startRecordingExternal();
+        break;
+      default:
+        console.warn("Invalid recorder:", recorder);
+        break;
+    }
+
+    if (useAudio) {
+      const consumer = global.mediasoup.rtp.audioConsumer;
+      console.log(
+        "Resume mediasoup RTP consumer, kind: %s, type: %s",
+        consumer.kind,
+        consumer.type
+      );
+      consumer.resume();
+    }
+    if (useVideo) {
+      const consumer = global.mediasoup.rtp.videoConsumer;
+      console.log(
+        "Resume mediasoup RTP consumer, kind: %s, type: %s",
+        consumer.kind,
+        consumer.type
+      );
+      consumer.resume();
+    }
+  },
+
+  async STOP_RECORDING() {
+    if (global.recProcess) {
+      global.recProcess.kill("SIGINT");
+    } else {
+      stopMediasoupRtp();
+    }
+  },
+
+  // Calls WebRtcTransport.connect() whenever the browser client part is ready
+  async WEBRTC_RECV_CONNECT(dtlsParameters) {
+    const transport = global.mediasoup.webrtc.recvTransport;
+
+    await transport.connect({ dtlsParameters });
+
+    console.log("mediasoup WebRTC RECV transport connected");
+  },
+
+  // Calls WebRtcTransport.produce() to start receiving media from the browser
+  async WEBRTC_RECV_PRODUCE(produceParameters, callback) {
+    const transport = global.mediasoup.webrtc.recvTransport;
+
+    const producer = await transport.produce(produceParameters);
+    switch (producer.kind) {
+      case "audio":
+        global.mediasoup.webrtc.audioProducer = producer;
+        break;
+      case "video":
+        global.mediasoup.webrtc.videoProducer = producer;
+        break;
+    }
+
+    send(global.server.jsonRpcClient.notification("WEBRTC_RECV_PRODUCER_READY",
+      [producer.kind]));
+
+    console.log(
+      "mediasoup WebRTC RECV producer created, kind: %s, type: %s, paused: %s",
+      producer.kind,
+      producer.type,
+      producer.paused
+    );
+
+    console.log(
+      "mediasoup WebRTC RECV producer RtpParameters:\n%O",
+      producer.rtpParameters
+    );
+
+    callback(producer.id);
+  },
+
+  // Creates a mediasoup WebRTC RECV transport
+  async WEBRTC_RECV_START() {
+    const router = global.mediasoup.router;
+
+    const transport = await router.createWebRtcTransport(
+      CONFIG.mediasoup.webrtcTransport
+    );
+    global.mediasoup.webrtc.recvTransport = transport;
+
+    console.log("mediasoup WebRTC RECV transport created");
+
+    const webrtcTransportOptions = {
+      id: transport.id,
+      iceParameters: transport.iceParameters,
+      iceCandidates: transport.iceCandidates,
+      dtlsParameters: transport.dtlsParameters,
+      sctpParameters: transport.sctpParameters,
+    };
+
+    console.log(
+      "mediasoup WebRTC RECV TransportOptions:\n%O",
+      webrtcTransportOptions
+    );
+
+    return webrtcTransportOptions;
   }
-  routerOptions.mediaCodecs.push(videoCodec);
-
-  let router;
-  try {
-    router = await worker.createRouter(routerOptions);
-  } catch (err) {
-    console.error("BUG:", err);
-    process.exit(1);
-  }
-  global.mediasoup.router = router;
-
-  // At this point, the computed "router.rtpCapabilities" includes the
-  // router codecs enhanced with retransmission and RTCP capabilities,
-  // and the list of RTP header extensions supported by mediasoup.
-
-  console.log("mediasoup router created");
-
-  console.log("mediasoup router RtpCapabilities:\n%O", router.rtpCapabilities);
-
-  return router.rtpCapabilities;
 }
 
 // ----------------------------------------------------------------------------
-
-// Creates a mediasoup WebRTC RECV transport
-
-async function handleWebrtcRecvStart() {
-  const router = global.mediasoup.router;
-
-  const transport = await router.createWebRtcTransport(
-    CONFIG.mediasoup.webrtcTransport
-  );
-  global.mediasoup.webrtc.recvTransport = transport;
-
-  console.log("mediasoup WebRTC RECV transport created");
-
-  const webrtcTransportOptions = {
-    id: transport.id,
-    iceParameters: transport.iceParameters,
-    iceCandidates: transport.iceCandidates,
-    dtlsParameters: transport.dtlsParameters,
-    sctpParameters: transport.sctpParameters,
-  };
-
-  console.log(
-    "mediasoup WebRTC RECV TransportOptions:\n%O",
-    webrtcTransportOptions
-  );
-
-  return webrtcTransportOptions;
-}
-
-// ----------------------------------------------------------------------------
-
-// Calls WebRtcTransport.connect() whenever the browser client part is ready
-
-async function handleWebrtcRecvConnect(dtlsParameters) {
-  const transport = global.mediasoup.webrtc.recvTransport;
-
-  await transport.connect({ dtlsParameters });
-
-  console.log("mediasoup WebRTC RECV transport connected");
-}
-
-// ----------------------------------------------------------------------------
-
-// Calls WebRtcTransport.produce() to start receiving media from the browser
-
-async function handleWebrtcRecvProduce(produceParameters, callback) {
-  const transport = global.mediasoup.webrtc.recvTransport;
-
-  const producer = await transport.produce(produceParameters);
-  switch (producer.kind) {
-    case "audio":
-      global.mediasoup.webrtc.audioProducer = producer;
-      break;
-    case "video":
-      global.mediasoup.webrtc.videoProducer = producer;
-      break;
-  }
-
-  global.server.socket.emit("WEBRTC_RECV_PRODUCER_READY", producer.kind);
-
-  console.log(
-    "mediasoup WebRTC RECV producer created, kind: %s, type: %s, paused: %s",
-    producer.kind,
-    producer.type,
-    producer.paused
-  );
-
-  console.log(
-    "mediasoup WebRTC RECV producer RtpParameters:\n%O",
-    producer.rtpParameters
-  );
-
-  callback(producer.id);
-}
-
-// ----------------------------------------------------------------------------
-
-async function handleStartRecording(recorder) {
-  const router = global.mediasoup.router;
-
-  const useAudio = audioEnabled();
-  const useVideo = videoEnabled();
-
-  // Start mediasoup's RTP consumer(s)
-
-  if (useAudio) {
-    const rtpTransport = await router.createPlainTransport({
-      // No RTP will be received from the remote side
-      comedia: false,
-
-      // FFmpeg and GStreamer don't support RTP/RTCP multiplexing ("a=rtcp-mux" in SDP)
-      rtcpMux: false,
-
-      ...CONFIG.mediasoup.plainTransport,
-    });
-    global.mediasoup.rtp.audioTransport = rtpTransport;
-
-    await rtpTransport.connect({
-      ip: CONFIG.mediasoup.recording.ip,
-      port: CONFIG.mediasoup.recording.audioPort,
-      rtcpPort: CONFIG.mediasoup.recording.audioPortRtcp,
-    });
-
-    console.log(
-      "mediasoup AUDIO RTP SEND transport connected: %s:%d <--> %s:%d (%s)",
-      rtpTransport.tuple.localIp,
-      rtpTransport.tuple.localPort,
-      rtpTransport.tuple.remoteIp,
-      rtpTransport.tuple.remotePort,
-      rtpTransport.tuple.protocol
-    );
-
-    console.log(
-      "mediasoup AUDIO RTCP SEND transport connected: %s:%d <--> %s:%d (%s)",
-      rtpTransport.rtcpTuple.localIp,
-      rtpTransport.rtcpTuple.localPort,
-      rtpTransport.rtcpTuple.remoteIp,
-      rtpTransport.rtcpTuple.remotePort,
-      rtpTransport.rtcpTuple.protocol
-    );
-
-    const rtpConsumer = await rtpTransport.consume({
-      producerId: global.mediasoup.webrtc.audioProducer.id,
-      rtpCapabilities: router.rtpCapabilities, // Assume the recorder supports same formats as mediasoup's router
-      paused: true,
-    });
-    global.mediasoup.rtp.audioConsumer = rtpConsumer;
-
-    console.log(
-      "mediasoup AUDIO RTP SEND consumer created, kind: %s, type: %s, paused: %s, SSRC: %s CNAME: %s",
-      rtpConsumer.kind,
-      rtpConsumer.type,
-      rtpConsumer.paused,
-      rtpConsumer.rtpParameters.encodings[0].ssrc,
-      rtpConsumer.rtpParameters.rtcp.cname
-    );
-  }
-
-  if (useVideo) {
-    const rtpTransport = await router.createPlainTransport({
-      // No RTP will be received from the remote side
-      comedia: false,
-
-      // FFmpeg and GStreamer don't support RTP/RTCP multiplexing ("a=rtcp-mux" in SDP)
-      rtcpMux: false,
-
-      ...CONFIG.mediasoup.plainTransport,
-    });
-    global.mediasoup.rtp.videoTransport = rtpTransport;
-
-    await rtpTransport.connect({
-      ip: CONFIG.mediasoup.recording.ip,
-      port: CONFIG.mediasoup.recording.videoPort,
-      rtcpPort: CONFIG.mediasoup.recording.videoPortRtcp,
-    });
-
-    console.log(
-      "mediasoup VIDEO RTP SEND transport connected: %s:%d <--> %s:%d (%s)",
-      rtpTransport.tuple.localIp,
-      rtpTransport.tuple.localPort,
-      rtpTransport.tuple.remoteIp,
-      rtpTransport.tuple.remotePort,
-      rtpTransport.tuple.protocol
-    );
-
-    console.log(
-      "mediasoup VIDEO RTCP SEND transport connected: %s:%d <--> %s:%d (%s)",
-      rtpTransport.rtcpTuple.localIp,
-      rtpTransport.rtcpTuple.localPort,
-      rtpTransport.rtcpTuple.remoteIp,
-      rtpTransport.rtcpTuple.remotePort,
-      rtpTransport.rtcpTuple.protocol
-    );
-
-    const rtpConsumer = await rtpTransport.consume({
-      producerId: global.mediasoup.webrtc.videoProducer.id,
-      rtpCapabilities: router.rtpCapabilities, // Assume the recorder supports same formats as mediasoup's router
-      paused: true,
-    });
-    global.mediasoup.rtp.videoConsumer = rtpConsumer;
-
-    console.log(
-      "mediasoup VIDEO RTP SEND consumer created, kind: %s, type: %s, paused: %s, SSRC: %s CNAME: %s",
-      rtpConsumer.kind,
-      rtpConsumer.type,
-      rtpConsumer.paused,
-      rtpConsumer.rtpParameters.encodings[0].ssrc,
-      rtpConsumer.rtpParameters.rtcp.cname
-    );
-  }
-
-  // ----
-
-  switch (recorder) {
-    case "ffmpeg":
-      await startRecordingFfmpeg();
-      break;
-    case "gstreamer":
-      await startRecordingGstreamer();
-      break;
-    case "external":
-      await startRecordingExternal();
-      break;
-    default:
-      console.warn("Invalid recorder:", recorder);
-      break;
-  }
-
-  if (useAudio) {
-    const consumer = global.mediasoup.rtp.audioConsumer;
-    console.log(
-      "Resume mediasoup RTP consumer, kind: %s, type: %s",
-      consumer.kind,
-      consumer.type
-    );
-    consumer.resume();
-  }
-  if (useVideo) {
-    const consumer = global.mediasoup.rtp.videoConsumer;
-    console.log(
-      "Resume mediasoup RTP consumer, kind: %s, type: %s",
-      consumer.kind,
-      consumer.type
-    );
-    consumer.resume();
-  }
-}
-
-// ----
 
 /* FFmpeg recording
  * ================
@@ -791,16 +794,6 @@ async function startRecordingExternal() {
 }
 
 // ----------------------------------------------------------------------------
-
-async function handleStopRecording() {
-  if (global.recProcess) {
-    global.recProcess.kill("SIGINT");
-  } else {
-    stopMediasoupRtp();
-  }
-}
-
-// ----
 
 function stopMediasoupRtp() {
   console.log("Stop mediasoup RTP transport and consumer");
