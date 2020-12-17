@@ -124,27 +124,6 @@ const methods =
   {
     ui.console.value += log + "\n";
     ui.console.scrollTop = ui.console.scrollHeight;
-  },
-
-  WEBRTC_RECV_PRODUCER_READY(kind)
-  {
-    console.log(`Server producer is ready, kind: ${kind}`);
-
-    switch (kind) {
-      case "audio":
-        global.recording.waitForAudio = false;
-        break;
-      case "video":
-        global.recording.waitForVideo = false;
-        break;
-    }
-
-    // Update UI
-    if (!global.recording.waitForAudio && !global.recording.waitForVideo) {
-      ui.settings.disabled = true;
-      ui.startWebRTC.disabled = true;
-      ui.startRecording.disabled = false;
-    }
   }
 }
 
@@ -245,8 +224,29 @@ function startWebrtcSend(callback)
       transport.on("produce", function(produceParameters, callback, _errback)
       {
         send(jsonRpcClient.request("WEBRTC_RECV_PRODUCE", [produceParameters],
-          function(producerId)
+          function(error, {id: producerId, kind})
           {
+            if(error) return console.error(error)
+
+            console.log(`Server producer is ready, kind: ${kind}`);
+
+            switch (kind) {
+              case "audio":
+                global.recording.waitForAudio = false;
+                break;
+              case "video":
+                global.recording.waitForVideo = false;
+                break;
+            }
+
+            // Update UI
+            if(!(global.recording.waitForAudio || global.recording.waitForVideo))
+            {
+              ui.settings.disabled = true;
+              ui.startWebRTC.disabled = true;
+              ui.startRecording.disabled = false;
+            }
+
             console.log("[server] WebRTC RECV producer created");
 
             callback({ producerId });

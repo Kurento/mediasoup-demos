@@ -2,7 +2,7 @@
   "name": "mediasoup-recording",
   "description": "mediasoup demo - WebRTC recording",
   "version": "1.0.0",
-  "main": "server.js",
+  "main": "lib",
   "scripts": {
     "prestart": "browserify client.js --outfile client-bundle.js --standalone client"
   },
