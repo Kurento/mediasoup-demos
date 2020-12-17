@@ -12,10 +12,7 @@ const CONFIG = require("./config");
 // ============
 
 const global = {
-  server: {
-    jsonRpcClient: null,
-    socket: null,
-  },
+  socket: null,
 
   mediasoup: {
     device: null,
@@ -33,6 +30,7 @@ const global = {
     waitForVideo: false,
   },
 };
+
 
 // ----------------------------------------------------------------------------
 
@@ -56,6 +54,7 @@ ui.startWebRTC.onclick = startWebRTC;
 ui.startRecording.onclick = startRecording;
 ui.stopRecording.onclick = stopRecording;
 
+
 // ----------------------------------------------------------------------------
 
 window.addEventListener("load", function () {
@@ -74,14 +73,26 @@ window.addEventListener("load", function () {
 
 window.addEventListener("beforeunload", function () {
   console.log("Page unloading, close WebSocket");
-  global.server.socket.close();
+  global.socket.close();
 });
 
-// ----
+
+// ----------------------------------------------------------------------------
+
+const methods =
+{
+  LOG(log)
+  {
+    ui.console.value += log + "\n";
+    ui.console.scrollTop = ui.console.scrollHeight;
+  }
+}
+
+const jsonRpcClient = JsonRpcClient(methods, send)
 
 function send(data)
 {
-  global.server.socket.send(JSON.stringify(data))
+  global.socket.send(JSON.stringify(data))
 }
 
 function connectSocket() {
@@ -106,26 +117,14 @@ function connectSocket() {
     console.error("WebSocket error:", err);
   });
 
-  const jsonRpcClient = JsonRpcClient(methods, send)
-
   socket.addEventListener("message", function({data})
   {
     jsonRpcClient.onMessage(JSON.parse(data))
   });
 
-  global.server.jsonRpcClient = jsonRpcClient;
-  global.server.socket = socket;
+  global.socket = socket;
 }
 
-
-const methods =
-{
-  LOG(log)
-  {
-    ui.console.value += log + "\n";
-    ui.console.scrollTop = ui.console.scrollHeight;
-  }
-}
 
 // ----------------------------------------------------------------------------
 
@@ -143,15 +142,13 @@ function startWebRTC() {
   })
 }
 
-// ----
-
 function startMediasoup(callback)
 {
   const uiVCodecName = document.querySelector(
     "input[name='uiVCodecName']:checked"
   ).value;
 
-  send(global.server.jsonRpcClient.request("START_MEDIASOUP", [uiVCodecName],
+  send(jsonRpcClient.request("START_MEDIASOUP", [uiVCodecName],
   async function(error, routerRtpCapabilities)
   {
     if(error) return console.error(error)
@@ -186,12 +183,9 @@ function startMediasoup(callback)
   }));
 }
 
-// ----
-
 function startWebrtcSend(callback)
 {
   const device = global.mediasoup.device;
-  const jsonRpcClient = global.server.jsonRpcClient;
 
   // mediasoup WebRTC transport
   // --------------------------
@@ -306,26 +300,23 @@ function startWebrtcSend(callback)
   ))
 }
 
+
 // ----------------------------------------------------------------------------
 
 function startRecording() {
   const uiRecorder = document.querySelector("input[name='uiRecorder']:checked")
     .value;
 
-  send(global.server.jsonRpcClient.notification("START_RECORDING", [uiRecorder]));
+  send(jsonRpcClient.notification("START_RECORDING", [uiRecorder]));
 
   // Update UI
   ui.startRecording.disabled = true;
   ui.stopRecording.disabled = false;
 }
 
-// ----------------------------------------------------------------------------
-
 function stopRecording() {
-  send(global.server.jsonRpcClient.notification("STOP_RECORDING"));
+  send(jsonRpcClient.notification("STOP_RECORDING"));
 
   // Update UI
   ui.stopRecording.disabled = true;
 }
-
-// ----------------------------------------------------------------------------
