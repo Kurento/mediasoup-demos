@@ -17,17 +17,17 @@
   },
   "homepage": "https://github.com/Kurento/mediasoup-demos",
   "dependencies": {
-    "@transfast/jsonrpcclient": "^0.0.0",
+    "@transfast/jsonrpcclient": "^0.1.2",
     "express": "^4.17.1",
     "express-ws": "^4.0.0",
     "ffmpeg-static": "^4.2.7",
     "mediasoup": "~3.6.29",
     "mediasoup-client": "~3.6.24",
-    "mkdirp": "^0.5.5"
+    "mkdirp": "^1.0.4"
   },
   "devDependencies": {
     "browserify": "^17.0.0",
-    "eslint": "^7.15.0",
+    "eslint": "^7.16.0",
     "prettier": "~2.2.1"
   }
 }
