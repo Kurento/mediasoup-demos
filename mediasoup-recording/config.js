@@ -3,7 +3,7 @@ module.exports = {
     cert: "../cert/cert.pem",
     certKey: "../cert/key.pem",
     port: 8080,
-    wsPath: "/server",
+    wsPath: "/",
     wsPingInterval: 25000,
     wsPingTimeout: 5000,
   },

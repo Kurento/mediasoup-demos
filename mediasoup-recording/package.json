@@ -2,10 +2,9 @@
   "name": "mediasoup-recording",
   "description": "mediasoup demo - WebRTC recording",
   "version": "1.0.0",
-  "main": "server.js",
+  "main": "lib",
   "scripts": {
-    "prestart": "browserify client.js --outfile client-bundle.js --standalone client",
-    "start": "node server.js"
+    "prestart": "browserify client/index.js --outfile client-bundle.js --standalone client"
   },
   "repository": {
     "type": "git",
@@ -18,17 +17,17 @@
   },
   "homepage": "https://github.com/Kurento/mediasoup-demos",
   "dependencies": {
-    "browserify": "^16.0.0",
-    "express": "^4.0.0",
-    "ffmpeg-static": "^4.0.0",
-    "mediasoup": "~3.6.0",
-    "mediasoup-client": "~3.6.0",
-    "socket.io": "^2.0.0",
-    "socket.io-client": "^2.0.0",
-    "socket.io-promise": "^1.0.0"
+    "@transfast/jsonrpcclient": "^0.1.2",
+    "express": "^4.17.1",
+    "express-ws": "^4.0.0",
+    "ffmpeg-static": "^4.2.7",
+    "mediasoup": "~3.6.29",
+    "mediasoup-client": "~3.6.24",
+    "mkdirp": "^1.0.4"
   },
   "devDependencies": {
-    "eslint": "^6.0.0",
-    "prettier": "~2.0.0"
+    "browserify": "^17.0.0",
+    "eslint": "^7.16.0",
+    "prettier": "~2.2.1"
   }
 }
